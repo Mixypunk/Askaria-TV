@@ -32,12 +32,8 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
-  // Initialiser l'audio background (optionnel sur TV, mais protège de la mise en veille)
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.mixypunk.askaria.tv.audio',
-    androidNotificationChannelName: 'Askaria TV Audio',
-    androidNotificationOngoing: true,
-  );
+  // Focus & UI initialization
+  // JustAudioBackground is removed for TV to avoid crashes without complex Manifest services.
 
   runApp(const AskariaTvWrapper());
 }

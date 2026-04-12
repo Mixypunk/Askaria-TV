@@ -130,14 +130,15 @@ class _TvAlbumCardState extends State<_TvAlbumCard> {
   Widget build(BuildContext context) {
     final artwork = '${SwingApiService().baseUrl}/img/thumbnail/${widget.album.image}';
 
-    return InkWell(
-      onFocusChange: (f) => setState(() => _hasFocus = f),
-      onTap: () {
-        // Todo: Ouvrir la vue de l'album
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+    return RepaintBoundary(
+      child: InkWell(
+        onFocusChange: (f) => setState(() => _hasFocus = f),
+        onTap: () {
+          // Todo: Ouvrir la vue de l'album
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
         width: 180,
         margin: const EdgeInsets.only(right: 24),
         transform: _hasFocus ? (Matrix4.identity()..scale(1.05)) : Matrix4.identity(),
@@ -153,6 +154,7 @@ class _TvAlbumCardState extends State<_TvAlbumCard> {
                borderRadius: BorderRadius.circular(12),
                child: Image.network(
                   artwork, width: 180, height: 180, fit: BoxFit.cover,
+                  cacheWidth: 360, cacheHeight: 360, // Décodage optimisé pour TV (RAM)
                   headers: SwingApiService().authHeaders,
                   errorBuilder: (_,__,___) => Container(width: 180, height: 180, color: Sp.surface, child: const Icon(Icons.album, size: 64)),
                ),
@@ -164,6 +166,7 @@ class _TvAlbumCardState extends State<_TvAlbumCard> {
                 style: const TextStyle(fontSize: 14, color: Sp.textDim)),
           ],
         ),
+      ),
       ),
     );
   }
