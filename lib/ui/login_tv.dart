@@ -100,6 +100,7 @@ class _LoginTvScreenState extends State<LoginTvScreen> {
                     controller: _urlCtrl,
                     icon: Icons.link,
                     keyboardType: TextInputType.url,
+                    autofocus: true,
                   ),
                   const SizedBox(height: 24),
                   _TvTextField(
@@ -137,8 +138,7 @@ class _TvTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final IconData icon;
-  final bool obscure;
-  final TextInputType? keyboardType;
+  final bool autofocus;
 
   const _TvTextField({
     required this.label,
@@ -146,26 +146,60 @@ class _TvTextField extends StatelessWidget {
     required this.icon,
     this.obscure = false,
     this.keyboardType,
+    this.autofocus = false,
   });
 
   @override
+  State<_TvTextField> createState() => _TvTextFieldState();
+}
+
+class _TvTextFieldState extends State<_TvTextField> {
+  late FocusNode _node;
+
+  @override
+  void initState() {
+    super.initState();
+    _node = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      textInputAction: TextInputAction.next,
-      style: const TextStyle(fontSize: 18, color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Sp.textDim),
-        prefixIcon: Icon(icon, color: Sp.textDim),
-        filled: true,
-        fillColor: Sp.surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Sp.focus, width: 2),
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && 
+           (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
+          // Ouvre de force le clavier virtuel lors du clic sur OK (télécommande TV)
+          _node.requestFocus();
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TextField(
+        focusNode: _node,
+        autofocus: widget.autofocus,
+        controller: widget.controller,
+        obscureText: widget.obscure,
+        keyboardType: widget.keyboardType,
+        textInputAction: TextInputAction.next,
+        style: const TextStyle(fontSize: 18, color: Colors.white),
+        decoration: InputDecoration(
+          labelText: widget.label,
+          labelStyle: const TextStyle(color: Sp.textDim),
+          prefixIcon: Icon(widget.icon, color: Sp.textDim),
+          filled: true,
+          fillColor: Sp.surface,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Sp.focus, width: 2),
+          ),
         ),
       ),
     );
