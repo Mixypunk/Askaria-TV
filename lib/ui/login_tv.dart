@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/services/api_service.dart';
 import '../main.dart';
 import 'home_tv.dart';
@@ -134,10 +135,12 @@ class _LoginTvScreenState extends State<LoginTvScreen> {
   }
 }
 
-class _TvTextField extends StatelessWidget {
+class _TvTextField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final IconData icon;
+  final bool obscure;
+  final TextInputType? keyboardType;
   final bool autofocus;
 
   const _TvTextField({
