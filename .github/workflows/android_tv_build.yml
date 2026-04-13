@@ -1,4 +1,4 @@
-name: Build Android TV APK
+name: Build & Release Askaria TV
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-apk:
-    name: Build & Release TV APK
+    name: Build & Release APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -33,30 +33,55 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-      - name: Build Android APK
+      - name: Build Android APK (release)
         run: flutter build apk --release
 
-      - name: Upload APK Artifact
+      # ── Extraction de la version ─────────────────────────────────────────
+      # pubspec.yaml format: "version: 1.2.3+4"
+      # → VERSION_NAME = 1.2.3   (utilisé dans le nom de la release)
+      # → VERSION_CODE = 4       (utilisé pour rendre le tag unique)
+      - name: Extract version from pubspec.yaml
+        id: get_version
+        run: |
+          RAW=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          VERSION_NAME=$(echo "$RAW" | cut -d '+' -f 1)
+          VERSION_CODE=$(echo "$RAW" | cut -d '+' -f 2)
+          # Tag unique: "Askaria-TV V1.2.3+build.4"  (jamais de doublons)
+          TAG="Askaria-TV+V${VERSION_NAME}+build.${VERSION_CODE}"
+          echo "VERSION_NAME=$VERSION_NAME"   >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE"   >> $GITHUB_ENV
+          echo "RELEASE_TAG=$TAG"             >> $GITHUB_ENV
+          echo "RELEASE_NAME=Askaria-TV V${VERSION_NAME}" >> $GITHUB_ENV
+
+      # ── Upload artefact de build (accessible 7 jours) ────────────────────
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Askaria-TV-Release
+          name: Askaria-TV-${{ env.VERSION_NAME }}-build${{ env.VERSION_CODE }}
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
 
-      - name: Read version from pubspec.yaml
-        id: get_version
-        run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          echo "APP_VERSION=v$VERSION" >> $GITHUB_ENV
-
+      # ── Publication GitHub Release ────────────────────────────────────────
+      # Chaque release a un tag unique → plus d'écrasement entre versions
+      # Nom affiché: "Askaria-TV V1.2.3"
+      # Tag technique: "Askaria-TV+V1.2.3+build.4" (unique par build number)
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.APP_VERSION }}
-          name: Askaria TV ${{ env.APP_VERSION }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
           files: build/app/outputs/flutter-apk/app-release.apk
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## Askaria TV — ${{ env.RELEASE_NAME }}
+            
+            **Version :** `${{ env.VERSION_NAME }}` (build ${{ env.VERSION_CODE }})
+            
+            ### Installation
+            1. Téléchargez l'APK ci-dessous
+            2. Activez les **sources inconnues** sur votre Android TV
+            3. Installez l'APK via un gestionnaire de fichiers
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
