@@ -52,13 +52,16 @@ jobs:
           echo "VERSION_CODE=$VERSION_CODE"   >> $GITHUB_ENV
           echo "RELEASE_TAG=$TAG"             >> $GITHUB_ENV
           echo "RELEASE_NAME=Askaria-TV V${VERSION_NAME}" >> $GITHUB_ENV
+          
+          # Renommer l'APK pour correspondre au nom public
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Askaria-TV V${VERSION_NAME}.apk"
 
       # ── Upload artefact de build (accessible 7 jours) ────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Askaria-TV-${{ env.VERSION_NAME }}-build${{ env.VERSION_CODE }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: "build/app/outputs/flutter-apk/Askaria-TV V${{ env.VERSION_NAME }}.apk"
           retention-days: 7
 
       # ── Publication GitHub Release ────────────────────────────────────────
@@ -70,7 +73,7 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: "build/app/outputs/flutter-apk/Askaria-TV V${{ env.VERSION_NAME }}.apk"
           draft: false
           prerelease: false
           generate_release_notes: true
