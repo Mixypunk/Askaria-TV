@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/player_provider.dart';
 import '../core/services/api_service.dart';
@@ -38,6 +39,15 @@ class _MiniPlayerTvState extends State<MiniPlayerTv> {
 
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+             event.logicalKey == LogicalKeyboardKey.enter)) {
+          _openPlayer();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: GestureDetector(
         onTap: _openPlayer,
         child: AnimatedContainer(
@@ -191,6 +201,15 @@ class _QuickBtnState extends State<_QuickBtn> {
   @override
   Widget build(BuildContext context) => Focus(
     onFocusChange: (f) => setState(() => _hasFocus = f),
+    onKeyEvent: (_, event) {
+      if (event is KeyDownEvent &&
+          (event.logicalKey == LogicalKeyboardKey.select ||
+           event.logicalKey == LogicalKeyboardKey.enter)) {
+        widget.onTap();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
     child: GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(

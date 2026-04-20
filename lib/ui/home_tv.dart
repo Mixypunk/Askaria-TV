@@ -219,6 +219,7 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
   Widget build(BuildContext context) {
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onToggle),
       child: GestureDetector(
         onTap: widget.onToggle,
         child: AnimatedContainer(
@@ -448,6 +449,7 @@ class _RecentHistoryChipState extends State<_RecentHistoryChip> {
     final player = context.read<PlayerProvider>();
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, () => player.playSong(widget.song)),
       child: GestureDetector(
         onTap: () => player.playSong(widget.song),
         child: AnimatedContainer(
@@ -605,6 +607,7 @@ class _RefreshBtnState extends State<_RefreshBtn> {
   @override
   Widget build(BuildContext context) => Focus(
     onFocusChange: (f) => setState(() => _hasFocus = f),
+    onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
     child: GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(

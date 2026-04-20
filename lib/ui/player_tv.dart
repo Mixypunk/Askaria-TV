@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/player_provider.dart';
 import '../core/services/api_service.dart';
@@ -254,6 +255,15 @@ class _PlayerControlButtonState extends State<_PlayerControlButton> {
     return Focus(
       autofocus: widget.autoFocus,
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+             event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(

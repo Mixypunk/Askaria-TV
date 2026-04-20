@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../main.dart';
 import '../core/services/api_service.dart';
 
+// ── Helper D-Pad ──────────────────────────────────────────────────────────────
+// Sur Android TV, le bouton OK/Select de la télécommande envoie
+// LogicalKeyboardKey.select (ou .enter selon le device).
+// GestureDetector.onTap seul NE RÉPOND PAS au D-Pad select.
+KeyEventResult handleDpadSelect(KeyEvent event, VoidCallback onTap) {
+  if (event is KeyDownEvent &&
+      (event.logicalKey == LogicalKeyboardKey.select ||
+       event.logicalKey == LogicalKeyboardKey.enter  ||
+       event.logicalKey == LogicalKeyboardKey.space)) {
+    onTap();
+    return KeyEventResult.handled;
+  }
+  return KeyEventResult.ignored;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
-// TvFocusCard — carte générique focusable (albums, artistes, playlists)
+// TvFocusCard — carte générique focusable D-Pad
 // ══════════════════════════════════════════════════════════════════════════════
 class TvFocusCard extends StatefulWidget {
   final Widget child;
@@ -55,11 +71,7 @@ class _TvFocusCardState extends State<TvFocusCard>
 
   void _onFocus(bool f) {
     setState(() => _hasFocus = f);
-    if (f) {
-      _anim.forward();
-    } else {
-      _anim.reverse();
-    }
+    if (f) { _anim.forward(); } else { _anim.reverse(); }
   }
 
   @override
@@ -68,6 +80,7 @@ class _TvFocusCardState extends State<TvFocusCard>
     return Focus(
       autofocus: widget.autoFocus,
       onFocusChange: _onFocus,
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
         child: ScaleTransition(
@@ -98,7 +111,7 @@ class _TvFocusCardState extends State<TvFocusCard>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TvNavItem — élément sidebar avec icône + label (rétractable)
+// TvNavItem — élément sidebar avec icône + label (rétractable) — D-Pad ready
 // ══════════════════════════════════════════════════════════════════════════════
 class TvNavItem extends StatefulWidget {
   final IconData icon;
@@ -135,6 +148,7 @@ class _TvNavItemState extends State<TvNavItem> {
 
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
@@ -185,7 +199,7 @@ class _TvNavItemState extends State<TvNavItem> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TvListTile — ligne de liste pour titres, playlists, etc.
+// TvListTile — ligne de liste pour titres — D-Pad ready
 // ══════════════════════════════════════════════════════════════════════════════
 class TvListTile extends StatefulWidget {
   final Widget? leading;
@@ -219,6 +233,7 @@ class _TvListTileState extends State<TvListTile> {
     return Focus(
       autofocus: widget.autoFocus,
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
@@ -228,9 +243,7 @@ class _TvListTileState extends State<TvListTile> {
           decoration: BoxDecoration(
             color: _hasFocus
                 ? Colors.white.withOpacity(0.12)
-                : (widget.isActive
-                    ? Sp.focus.withOpacity(0.12)
-                    : Sp.surface),
+                : (widget.isActive ? Sp.focus.withOpacity(0.12) : Sp.surface),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _hasFocus ? Colors.white : Colors.transparent,
@@ -291,7 +304,7 @@ class _TvListTileState extends State<TvListTile> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TvSectionHeader — titre de section avec bouton "Tout voir" optionnel
+// TvSectionHeader
 // ══════════════════════════════════════════════════════════════════════════════
 class TvSectionHeader extends StatelessWidget {
   final String title;
@@ -315,8 +328,7 @@ class TvSectionHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          if (onSeeAll != null)
-            _SeeAllBtn(onTap: onSeeAll!),
+          if (onSeeAll != null) _SeeAllBtn(onTap: onSeeAll!),
         ],
       ),
     );
@@ -336,6 +348,7 @@ class _SeeAllBtnState extends State<_SeeAllBtn> {
   Widget build(BuildContext context) {
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
@@ -353,6 +366,157 @@ class _SeeAllBtnState extends State<_SeeAllBtn> {
             style: TextStyle(
               color: _hasFocus ? Colors.white : Sp.textDim,
               fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TvButton — bouton générique D-Pad ready (remplace tous les boutons locaux)
+// ══════════════════════════════════════════════════════════════════════════════
+class TvButton extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool loading;
+  final bool danger;
+  final bool autoFocus;
+  final IconData? icon;
+  final bool outlined;
+
+  const TvButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.loading = false,
+    this.danger = false,
+    this.autoFocus = false,
+    this.icon,
+    this.outlined = false,
+  });
+
+  @override
+  State<TvButton> createState() => _TvButtonState();
+}
+
+class _TvButtonState extends State<TvButton> {
+  bool _hasFocus = false;
+
+  @override
+  Widget build(BuildContext context) {
+    void act() { if (!widget.loading) widget.onTap(); }
+
+    final primary = widget.danger ? const Color(0xFFE24B4A) : Sp.focus;
+
+    return Focus(
+      autofocus: widget.autoFocus,
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, act),
+      child: GestureDetector(
+        onTap: act,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+          decoration: BoxDecoration(
+            color: widget.outlined
+                ? (_hasFocus ? Colors.white.withOpacity(0.1) : Colors.transparent)
+                : (_hasFocus ? Colors.white : primary),
+            borderRadius: BorderRadius.circular(50),
+            border: Border.all(
+              color: widget.outlined
+                  ? (_hasFocus ? Colors.white : Colors.white24)
+                  : (_hasFocus ? Colors.white : Colors.transparent),
+              width: 2,
+            ),
+            boxShadow: _hasFocus && !widget.outlined
+                ? [BoxShadow(color: primary.withOpacity(0.5), blurRadius: 18)]
+                : [],
+          ),
+          child: widget.loading
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: widget.outlined ? Sp.textDim : Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.icon != null) ...[
+                      Icon(
+                        widget.icon,
+                        size: 18,
+                        color: widget.outlined
+                            ? (_hasFocus ? Colors.white : Sp.textDim)
+                            : (_hasFocus && !widget.danger ? Sp.bg : Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: widget.outlined
+                            ? (_hasFocus ? Colors.white : Sp.textDim)
+                            : (_hasFocus && !widget.danger ? Sp.bg : Colors.white),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TvSwitch — toggle D-Pad ready
+// ══════════════════════════════════════════════════════════════════════════════
+class TvSwitch extends StatefulWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const TvSwitch({super.key, required this.value, required this.onChanged});
+  @override
+  State<TvSwitch> createState() => _TvSwitchState();
+}
+
+class _TvSwitchState extends State<TvSwitch> {
+  bool _hasFocus = false;
+
+  @override
+  Widget build(BuildContext context) {
+    void toggle() => widget.onChanged(!widget.value);
+    return Focus(
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, toggle),
+      child: GestureDetector(
+        onTap: toggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 62, height: 34,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            color: widget.value ? Sp.focus : Colors.white24,
+            border: _hasFocus ? Border.all(color: Colors.white, width: 2) : null,
+            boxShadow: _hasFocus
+                ? [BoxShadow(color: Sp.focus.withOpacity(0.5), blurRadius: 12)]
+                : [],
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 250),
+            alignment: widget.value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              margin: const EdgeInsets.all(4),
+              width: 26, height: 26,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
             ),
           ),
         ),
@@ -381,6 +545,16 @@ class TvArtworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final br = borderRadius ?? BorderRadius.circular(8);
+    if (url.isEmpty) {
+      return ClipRRect(
+        borderRadius: br,
+        child: Container(
+          width: size, height: size,
+          color: Sp.surface,
+          child: Icon(fallbackIcon, color: Colors.white24, size: size * 0.4),
+        ),
+      );
+    }
     return ClipRRect(
       borderRadius: br,
       child: Image.network(
@@ -388,14 +562,60 @@ class TvArtworkImage extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        cacheWidth: (size * 2).toInt(),
-        cacheHeight: (size * 2).toInt(),
         headers: SwingApiService().authHeaders,
         errorBuilder: (_, __, ___) => Container(
-          width: size,
-          height: size,
+          width: size, height: size,
           color: Sp.surface,
           child: Icon(fallbackIcon, color: Colors.white24, size: size * 0.4),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TvIconButton — bouton icône focusable D-Pad
+// ══════════════════════════════════════════════════════════════════════════════
+class TvIconButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool autoFocus;
+  final Color? color;
+  const TvIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.autoFocus = false,
+    this.color,
+  });
+  @override
+  State<TvIconButton> createState() => _TvIconButtonState();
+}
+class _TvIconButtonState extends State<TvIconButton> {
+  bool _hasFocus = false;
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      autofocus: widget.autoFocus,
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _hasFocus ? Colors.white.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _hasFocus ? Colors.white : Colors.white12,
+            ),
+          ),
+          child: Icon(
+            widget.icon,
+            color: _hasFocus ? Colors.white : (widget.color ?? Sp.textDim),
+            size: 24,
+          ),
         ),
       ),
     );
