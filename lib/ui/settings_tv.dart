@@ -265,7 +265,7 @@ class _SettingsTvScreenState extends State<SettingsTvScreen> {
     try {
       final api = SwingApiService();
       final watch = Stopwatch()..start();
-      await api.searchSongs('ping_test~qwerty', limit: 1);
+      await api.searchSongs('ping_test~qwerty');
       watch.stop();
       if (mounted) {
         setState(() {
@@ -1123,7 +1123,7 @@ class _TvUpdateDialogState extends State<_TvUpdateDialog> {
       actions: [
         if (_step == _DlStep.idle) ...[
           TextButton(
-            focusColor: Colors.white12,
+            style: TextButton.styleFrom(overlayColor: Colors.white12),
             onPressed: () => Navigator.pop(context),
             child: const Text('Plus tard', style: TextStyle(color: Sp.textDim, fontSize: 15)),
           ),
