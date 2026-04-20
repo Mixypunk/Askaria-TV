@@ -6,6 +6,11 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version (ex: 1.2.0) — vide = auto depuis pubspec'
+        required: false
+        default: ''
 
 jobs:
   build-apk:
@@ -19,9 +24,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Flutter
@@ -30,61 +35,93 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter Pub Get
-        run: flutter pub get
-
-      - name: Build Android APK (release)
-        run: flutter build apk --release
-
-      # ── Extraction de la version ─────────────────────────────────────────
-      # pubspec.yaml format: "version: 1.2.3+4"
-      # → VERSION_NAME = 1.2.3   (utilisé dans le nom de la release)
-      # → VERSION_CODE = 4       (utilisé pour rendre le tag unique)
-      - name: Extract version from pubspec.yaml
-        id: get_version
+      # ── Version ──────────────────────────────────────────────────────────
+      # Le BUILD_NUMBER = github.run_number est TOUJOURS croissant et unique.
+      # Le VERSION_NAME est lu depuis pubspec.yaml (partie avant le +),
+      # ou surchargé manuellement via workflow_dispatch.
+      - name: Compute version
+        id: version
         run: |
           RAW=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          VERSION_NAME=$(echo "$RAW" | cut -d '+' -f 1)
-          VERSION_CODE=$(echo "$RAW" | cut -d '+' -f 2)
-          # Tag unique: "Askaria-TV V1.2.3+build.4"  (jamais de doublons)
-          TAG="Askaria-TV+V${VERSION_NAME}+build.${VERSION_CODE}"
-          echo "VERSION_NAME=$VERSION_NAME"   >> $GITHUB_ENV
-          echo "VERSION_CODE=$VERSION_CODE"   >> $GITHUB_ENV
-          echo "RELEASE_TAG=$TAG"             >> $GITHUB_ENV
-          echo "RELEASE_NAME=Askaria-TV V${VERSION_NAME}" >> $GITHUB_ENV
-          
-          # Renommer l'APK pour correspondre au nom public
-          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Askaria-TV V${VERSION_NAME}.apk"
+          PUBSPEC_NAME=$(echo "$RAW" | cut -d '+' -f 1)
 
-      # ── Upload artefact de build (accessible 7 jours) ────────────────────
+          if [ -n "${{ github.event.inputs.version_name }}" ]; then
+            VERSION_NAME="${{ github.event.inputs.version_name }}"
+          else
+            VERSION_NAME="$PUBSPEC_NAME"
+          fi
+
+          BUILD_NUMBER="${{ github.run_number }}"
+
+          # Tag unique = jamais le même, même pour la même version sémantique
+          TAG="Askaria-TV-v${VERSION_NAME}+${BUILD_NUMBER}"
+          RELEASE_NAME="Askaria TV v${VERSION_NAME}"
+          APK_NAME="Askaria-TV-v${VERSION_NAME}-build${BUILD_NUMBER}.apk"
+
+          echo "version_name=$VERSION_NAME"   >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER"   >> $GITHUB_OUTPUT
+          echo "tag=$TAG"                     >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME"   >> $GITHUB_OUTPUT
+          echo "apk_name=$APK_NAME"           >> $GITHUB_OUTPUT
+
+      # ── Injecter la version dans pubspec.yaml avant le build ─────────────
+      - name: Update pubspec version
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.version.outputs.version_name }}+${{ steps.version.outputs.build_number }}/" pubspec.yaml
+          echo "pubspec version: $(grep '^version:' pubspec.yaml)"
+
+      # ── Dépendances ───────────────────────────────────────────────────────
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # ── Build APK release ─────────────────────────────────────────────────
+      - name: Build Android APK (release)
+        run: |
+          flutter build apk --release \
+            --build-name=${{ steps.version.outputs.version_name }} \
+            --build-number=${{ steps.version.outputs.build_number }}
+
+      # ── Renommer l'APK ────────────────────────────────────────────────────
+      - name: Rename APK
+        run: |
+          SRC="build/app/outputs/flutter-apk/app-release.apk"
+          DST="build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }}"
+          cp "$SRC" "$DST"
+          echo "APK prêt : $(du -sh $DST)"
+
+      # ── Upload artefact de build (30 jours) ──────────────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Askaria-TV-${{ env.VERSION_NAME }}-build${{ env.VERSION_CODE }}
-          path: "build/app/outputs/flutter-apk/Askaria-TV V${{ env.VERSION_NAME }}.apk"
-          retention-days: 7
+          name: ${{ steps.version.outputs.apk_name }}
+          path: build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }}
+          retention-days: 30
 
       # ── Publication GitHub Release ────────────────────────────────────────
-      # Chaque release a un tag unique → plus d'écrasement entre versions
-      # Nom affiché: "Askaria-TV V1.2.3"
-      # Tag technique: "Askaria-TV+V1.2.3+build.4" (unique par build number)
+      # Chaque run crée une NOUVELLE release grâce au tag unique.
+      # make_latest: true → l'app TV détecte automatiquement la dernière release.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_NAME }}
-          files: "build/app/outputs/flutter-apk/Askaria-TV V${{ env.VERSION_NAME }}.apk"
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.release_name }}
+          files: build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }}
           draft: false
           prerelease: false
+          make_latest: true
           generate_release_notes: true
           body: |
-            ## Askaria TV — ${{ env.RELEASE_NAME }}
-            
-            **Version :** `${{ env.VERSION_NAME }}` (build ${{ env.VERSION_CODE }})
-            
-            ### Installation
+            ## 📺 Askaria TV — ${{ steps.version.outputs.release_name }}
+
+            **Version :** `${{ steps.version.outputs.version_name }}` · **Build :** `${{ steps.version.outputs.build_number }}`
+            **Commit :** `${{ github.event.head_commit.message }}`
+
+            ### 📥 Installation
             1. Téléchargez l'APK ci-dessous
             2. Activez les **sources inconnues** sur votre Android TV
-            3. Installez l'APK via un gestionnaire de fichiers
+            3. Installez l'APK via un gestionnaire de fichiers (ex: FX File Explorer, Solid Explorer)
+
+            ### 🔄 Mise à jour automatique
+            L'application détecte et télécharge automatiquement les nouvelles versions.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
