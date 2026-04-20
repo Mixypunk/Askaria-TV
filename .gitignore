@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ── Signing — NE JAMAIS commiter ces fichiers ────────────────────────────────
+*.jks
+*.keystore
+android/key.properties
+android/app/askaria_tv_base64.txt
