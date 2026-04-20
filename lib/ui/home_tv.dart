@@ -14,30 +14,43 @@ import 'settings_tv.dart';
 import 'album_tv.dart';
 import 'library_tv.dart';
 import 'search_tv.dart';
-import 'player_bar_tv.dart';
+import 'player_tv.dart';
 import 'artists_tv.dart';
 import 'favourites_tv.dart';
 
-// ── Indices sections ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Navigation
+// ══════════════════════════════════════════════════════════════════════════════
 enum _TvSection { home, search, albums, artists, playlists, favourites, settings }
 
+const _navItems = [
+  (_TvSection.home,       Icons.home_rounded,         'Accueil'),
+  (_TvSection.search,     Icons.search_rounded,        'Recherche'),
+  (_TvSection.albums,     Icons.album_rounded,         'Albums'),
+  (_TvSection.artists,    Icons.person_rounded,        'Artistes'),
+  (_TvSection.playlists,  Icons.queue_music_rounded,   'Playlists'),
+  (_TvSection.favourites, Icons.favorite_rounded,      'Favoris'),
+  (_TvSection.settings,   Icons.settings_rounded,      'Paramètres'),
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HomeTvScreen — root screen
+// ══════════════════════════════════════════════════════════════════════════════
 class HomeTvScreen extends StatefulWidget {
   const HomeTvScreen({super.key});
-
   @override
   State<HomeTvScreen> createState() => _HomeTvScreenState();
 }
 
 class _HomeTvScreenState extends State<HomeTvScreen> {
   _TvSection _section = _TvSection.home;
-  bool _sidebarExpanded = true;
 
   // Home data
-  List<Album>   _recentAlbums    = [];
-  List<Song>    _recentHistory   = [];
-  List<Artist>  _topArtists      = [];
-  List<Playlist>_recentPlaylists = [];
-  List<Song>    _favourites      = [];
+  List<Album>    _recentAlbums    = [];
+  List<Song>     _recentHistory   = [];
+  List<Artist>   _topArtists      = [];
+  List<Playlist> _recentPlaylists = [];
+  List<Song>     _favourites      = [];
   bool _loadingHome = true;
 
   @override
@@ -47,22 +60,23 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
   }
 
   Future<void> _loadHomeData() async {
+    setState(() => _loadingHome = true);
+    final playerRef = context.read<PlayerProvider>(); // capture before async gap
     try {
       final api = SwingApiService();
       final results = await Future.wait([
         api.getAlbums(limit: 20),
-        api.getArtists(limit: 16),
+        api.getArtists(limit: 12),
         api.getPlaylists(),
         api.getFavourites(),
       ]);
-      final player = context.read<PlayerProvider>();
       if (mounted) {
         setState(() {
           _recentAlbums    = results[0] as List<Album>;
           _topArtists      = results[1] as List<Artist>;
           _recentPlaylists = results[2] as List<Playlist>;
           _favourites      = results[3] as List<Song>;
-          _recentHistory   = player.history.take(20).toList();
+          _recentHistory   = playerRef.history.take(8).toList();
           _loadingHome     = false;
         });
       }
@@ -84,119 +98,49 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
           onRefresh:       _loadHomeData,
           onGoSection:     (s) => setState(() => _section = s),
         );
-      case _TvSection.search:
-        return const SearchTvScreen();
-      case _TvSection.albums:
-        return const AlbumsTvSection();
-      case _TvSection.artists:
-        return const ArtistsTvSection();
-      case _TvSection.playlists:
-        return const LibraryTvScreen();
-      case _TvSection.favourites:
-        return const FavouritesTvSection();
-      case _TvSection.settings:
-        return const SettingsTvScreen();
+      case _TvSection.search:     return const SearchTvScreen();
+      case _TvSection.albums:     return const AlbumsTvSection();
+      case _TvSection.artists:    return const ArtistsTvSection();
+      case _TvSection.playlists:  return const LibraryTvScreen();
+      case _TvSection.favourites: return const FavouritesTvSection();
+      case _TvSection.settings:   return const SettingsTvScreen();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Sp.bg,
       body: KeyboardListener(
         focusNode: FocusNode(),
         onKeyEvent: (event) {
-          // Touche BACK TV (bouton retour télécommande) → home
           if (event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.goBack) {
-            if (_section != _TvSection.home) {
-              setState(() => _section = _TvSection.home);
-            }
+              event.logicalKey == LogicalKeyboardKey.goBack &&
+              _section != _TvSection.home) {
+            setState(() => _section = _TvSection.home);
           }
         },
-        child: Row(
+        child: Column(
           children: [
-            // ── Sidebar ─────────────────────────────────────────────────────
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOut,
-              width: _sidebarExpanded ? 230 : 72,
-              color: Sp.surface,
-              child: Column(
+            // ── Main area (sidebar + content) ──────────────────────────────
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo / toggle
-                  _SidebarHeader(
-                    expanded: _sidebarExpanded,
-                    onToggle: () => setState(() => _sidebarExpanded = !_sidebarExpanded),
+                  // Sidebar — toujours 82px, icônes uniquement
+                  _TvSidebar(
+                    current: _section,
+                    onSelect: (s) => setState(() => _section = s),
                   ),
-                  const SizedBox(height: 8),
-                  // Nav items
+                  // Content
                   Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      children: [
-                        TvNavItem(
-                          icon: Icons.home_rounded,
-                          label: 'Accueil',
-                          active: _section == _TvSection.home,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.home),
-                        ),
-                        TvNavItem(
-                          icon: Icons.search_rounded,
-                          label: 'Recherche',
-                          active: _section == _TvSection.search,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.search),
-                        ),
-                        const _SidebarDivider(),
-                        TvNavItem(
-                          icon: Icons.album_rounded,
-                          label: 'Albums',
-                          active: _section == _TvSection.albums,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.albums),
-                        ),
-                        TvNavItem(
-                          icon: Icons.person_rounded,
-                          label: 'Artistes',
-                          active: _section == _TvSection.artists,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.artists),
-                        ),
-                        TvNavItem(
-                          icon: Icons.queue_music_rounded,
-                          label: 'Playlists',
-                          active: _section == _TvSection.playlists,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.playlists),
-                        ),
-                        TvNavItem(
-                          icon: Icons.favorite_rounded,
-                          label: 'Favoris',
-                          active: _section == _TvSection.favourites,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.favourites),
-                        ),
-                        const _SidebarDivider(),
-                        TvNavItem(
-                          icon: Icons.settings_rounded,
-                          label: 'Paramètres',
-                          active: _section == _TvSection.settings,
-                          expanded: _sidebarExpanded,
-                          onTap: () => setState(() => _section = _TvSection.settings),
-                        ),
-                      ],
-                    ),
+                    child: ClipRect(child: _buildContent()),
                   ),
-                  // Mini-player en bas de la sidebar
-                  const MiniPlayerTv(),
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
-
-            // ── Contenu ──────────────────────────────────────────────────────
-            Expanded(child: _buildContent()),
+            // ── Mini player (barre fixe au bas de l'écran) ─────────────────
+            const _BottomPlayerBar(),
           ],
         ),
       ),
@@ -204,59 +148,104 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
   }
 }
 
-// ── Header sidebar ────────────────────────────────────────────────────────────
-class _SidebarHeader extends StatefulWidget {
-  final bool expanded;
-  final VoidCallback onToggle;
-  const _SidebarHeader({required this.expanded, required this.onToggle});
-  @override
-  State<_SidebarHeader> createState() => _SidebarHeaderState();
-}
+// ══════════════════════════════════════════════════════════════════════════════
+// _TvSidebar — icônes uniquement, label en tooltip sur focus
+// ══════════════════════════════════════════════════════════════════════════════
+class _TvSidebar extends StatelessWidget {
+  final _TvSection current;
+  final ValueChanged<_TvSection> onSelect;
 
-class _SidebarHeaderState extends State<_SidebarHeader> {
-  bool _hasFocus = false;
+  const _TvSidebar({required this.current, required this.onSelect});
+
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      onFocusChange: (f) => setState(() => _hasFocus = f),
-      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onToggle),
-      child: GestureDetector(
-        onTap: widget.onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            color: _hasFocus ? Colors.white.withOpacity(0.08) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+    return Container(
+      width: 82,
+      color: Sp.surface,
+      child: Column(
+        children: [
+          // Logo
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: ShaderMask(
+              shaderCallback: (r) => kGrad.createShader(r),
+              child: const Icon(Icons.tv_rounded, color: Colors.white, size: 36),
+            ),
           ),
-          child: Row(
-            mainAxisAlignment: widget.expanded
-                ? MainAxisAlignment.spaceBetween
-                : MainAxisAlignment.center,
-            children: [
-              if (widget.expanded) ...[
-                ShaderMask(
-                  shaderCallback: (r) => kGrad.createShader(r),
-                  child: const Text(
-                    'ASKARIA',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-              Icon(
-                widget.expanded
-                    ? Icons.menu_open_rounded
-                    : Icons.menu_rounded,
-                color: _hasFocus ? Colors.white : Sp.textDim,
-                size: 26,
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 8),
+          // Nav items
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              children: _navItems.map((item) {
+                return _SidebarItem(
+                  icon: item.$2,
+                  label: item.$3,
+                  active: current == item.$1,
+                  onSelect: () => onSelect(item.$1),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarItem extends StatefulWidget {
+  final IconData icon;
+  final String   label;
+  final bool     active;
+  final VoidCallback onSelect;
+  const _SidebarItem({
+    required this.icon, required this.label,
+    required this.active, required this.onSelect,
+  });
+  @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _hasFocus = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.active
+        ? Sp.focus
+        : (_hasFocus ? Colors.white : Sp.textDim);
+
+    return Tooltip(
+      message: widget.label,
+      preferBelow: false,
+      verticalOffset: 0,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A3A),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+      child: Focus(
+        onFocusChange: (f) => setState(() => _hasFocus = f),
+        onKeyEvent: (_, event) => handleDpadSelect(event, widget.onSelect),
+        child: GestureDetector(
+          onTap: widget.onSelect,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: widget.active
+                  ? Sp.focus.withOpacity(0.15)
+                  : (_hasFocus ? Colors.white.withOpacity(0.08) : Colors.transparent),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _hasFocus ? Colors.white : Colors.transparent,
+                width: 1.5,
               ),
-            ],
+            ),
+            child: Center(
+              child: Icon(widget.icon, color: color, size: 28),
+            ),
           ),
         ),
       ),
@@ -264,18 +253,178 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
   }
 }
 
-class _SidebarDivider extends StatelessWidget {
-  const _SidebarDivider();
+// ══════════════════════════════════════════════════════════════════════════════
+// _BottomPlayerBar — barre de lecture fixe en bas (si musique en cours)
+// ══════════════════════════════════════════════════════════════════════════════
+class _BottomPlayerBar extends StatefulWidget {
+  const _BottomPlayerBar();
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-    height: 1,
-    color: Colors.white10,
-  );
+  State<_BottomPlayerBar> createState() => _BottomPlayerBarState();
+}
+class _BottomPlayerBarState extends State<_BottomPlayerBar> {
+  bool _hasFocus = false;
+
+  void _openPlayer() {
+    Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (_, __, ___) => const PlayerTvScreen(),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = context.watch<PlayerProvider>();
+    final song   = player.currentSong;
+    if (song == null) return const SizedBox.shrink();
+
+    final artwork = '${SwingApiService().baseUrl}/img/thumbnail/${song.image ?? song.hash}';
+
+    return Focus(
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, _openPlayer),
+      child: GestureDetector(
+        onTap: _openPlayer,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 72,
+          decoration: BoxDecoration(
+            color: _hasFocus ? const Color(0xFF252535) : const Color(0xFF1C1C28),
+            border: Border(
+              top: BorderSide(
+                color: _hasFocus ? Sp.focus : Colors.white12,
+                width: _hasFocus ? 2 : 1,
+              ),
+            ),
+            boxShadow: _hasFocus
+                ? [BoxShadow(color: Sp.focus.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, -4))]
+                : [],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                // Artwork
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: TvArtworkImage(url: artwork, size: 48),
+                ),
+                const SizedBox(width: 16),
+                // Titre + artiste
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        song.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Sp.textDim, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                // Contrôles rapides
+                _BarControl(
+                  icon: Icons.skip_previous_rounded,
+                  onTap: player.previous,
+                ),
+                const SizedBox(width: 4),
+                _BarControl(
+                  icon: player.isPlaying
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.play_circle_filled_rounded,
+                  onTap: player.playPause,
+                  size: 36,
+                  accent: true,
+                ),
+                const SizedBox(width: 4),
+                _BarControl(
+                  icon: Icons.skip_next_rounded,
+                  onTap: player.next,
+                ),
+                const SizedBox(width: 20),
+                // Barre de progression verticale
+                SizedBox(
+                  width: 200,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: player.progress.clamp(0.0, 1.0),
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _hasFocus ? Colors.white : Sp.focus),
+                          minHeight: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Icône ouverture player
+                Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: _hasFocus ? Colors.white : Sp.textDim,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BarControl extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+  final bool accent;
+  const _BarControl({required this.icon, required this.onTap,
+      this.size = 26, this.accent = false});
+  @override State<_BarControl> createState() => _BarControlState();
+}
+class _BarControlState extends State<_BarControl> {
+  bool _hasFocus = false;
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, widget.onTap),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            widget.icon,
+            size: widget.size,
+            color: _hasFocus ? Colors.white
+                : (widget.accent ? Sp.focus : Sp.textDim),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// HomeContent — page d'accueil avec sections multiples
+// _HomeContent — page d'accueil
 // ══════════════════════════════════════════════════════════════════════════════
 class _HomeContent extends StatelessWidget {
   final List<Album>    recentAlbums;
@@ -305,137 +454,120 @@ class _HomeContent extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(36, 32, 36, 100),
+      padding: const EdgeInsets.fromLTRB(32, 28, 32, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Titre principal ────────────────────────────────────────────
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Bonne écoute 🎵',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              _RefreshBtn(onTap: onRefresh),
-            ],
-          ),
-          const SizedBox(height: 32),
+          // Titre + refresh
+          Row(children: [
+            const Expanded(
+              child: Text('Bonne écoute 🎵',
+                style: TextStyle(color: Colors.white, fontSize: 28,
+                    fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+            ),
+            _RefreshBtn(onTap: onRefresh),
+          ]),
+          const SizedBox(height: 24),
 
-          // ── Section : Écoutes récentes ─────────────────────────────────
+          // ── Récemment écouté (petites chips 2 colonnes) ──────────────────
           if (recentHistory.isNotEmpty) ...[
             TvSectionHeader(title: '▶  Récemment écouté'),
-            SizedBox(
-              height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: recentHistory.take(12).length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (ctx, i) {
-                  final song = recentHistory[i];
-                  return _RecentHistoryChip(song: song);
-                },
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 4.5,
               ),
+              itemCount: recentHistory.length.clamp(0, 8),
+              itemBuilder: (ctx, i) => _RecentHistoryChip(song: recentHistory[i]),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
           ],
 
-          // ── Section : Albums récents ────────────────────────────────────
+          // ── Albums (scrolling horizontal) ──────────────────────────────
           if (recentAlbums.isNotEmpty) ...[
             TvSectionHeader(
-              title: '💿  Albums récents',
+              title: '💿  Albums',
               onSeeAll: () => onGoSection(_TvSection.albums),
             ),
             SizedBox(
-              height: 220,
+              height: 200,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: recentAlbums.take(12).length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemCount: recentAlbums.length.clamp(0, 12),
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (ctx, i) => _HomeAlbumCard(album: recentAlbums[i]),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
           ],
 
-          // ── Section : Artistes populaires ──────────────────────────────
+          // ── Artistes (scrolling horizontal) ────────────────────────────
           if (topArtists.isNotEmpty) ...[
             TvSectionHeader(
               title: '🎤  Artistes',
               onSeeAll: () => onGoSection(_TvSection.artists),
             ),
             SizedBox(
-              height: 180,
+              height: 160,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: topArtists.take(10).length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemCount: topArtists.length.clamp(0, 10),
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (ctx, i) => _HomeArtistCard(artist: topArtists[i]),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
           ],
 
-          // ── Section : Playlists ────────────────────────────────────────
-          if (recentPlaylists.isNotEmpty) ...[
-            TvSectionHeader(
-              title: '🎵  Playlists',
-              onSeeAll: () => onGoSection(_TvSection.playlists),
-            ),
-            SizedBox(
-              height: 200,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: recentPlaylists.take(8).length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
-                itemBuilder: (ctx, i) => _HomePlaylistCard(playlist: recentPlaylists[i]),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-
-          // ── Section : Favoris ──────────────────────────────────────────
-          if (favourites.isNotEmpty) ...[
-            TvSectionHeader(
-              title: '❤️  Favoris',
-              onSeeAll: () => onGoSection(_TvSection.favourites),
-            ),
-            Column(
-              children: favourites.take(6).toList().asMap().entries.map((e) {
-                final i = e.key;
-                final song = e.value;
-                final artwork = '${SwingApiService().baseUrl}/img/thumbnail/${song.image ?? song.hash}';
-                final player = context.read<PlayerProvider>();
-                final isPlaying = context.watch<PlayerProvider>().currentSong?.hash == song.hash;
-                return TvListTile(
-                  key: ValueKey(song.hash),
-                  autoFocus: i == 0 && favourites.isNotEmpty,
-                  leading: TvArtworkImage(url: artwork, size: 52),
-                  title: song.title,
-                  subtitle: '${song.artist} • ${song.album ?? ''}',
-                  isActive: isPlaying,
-                  trailing: Text(
-                    song.formattedDuration,
-                    style: const TextStyle(color: Sp.textDim, fontSize: 14),
-                  ),
-                  onTap: () => player.playSong(song, queue: favourites, index: i),
-                );
-              }).toList(),
-            ),
-          ],
+          // ── Playlists + Favoris côte à côte ────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (recentPlaylists.isNotEmpty)
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TvSectionHeader(
+                      title: '🎵  Playlists',
+                      onSeeAll: () => onGoSection(_TvSection.playlists),
+                    ),
+                    ...recentPlaylists.take(5).map((pl) => _HomePlaylistTile(playlist: pl)),
+                  ],
+                )),
+              if (recentPlaylists.isNotEmpty && favourites.isNotEmpty)
+                const SizedBox(width: 24),
+              if (favourites.isNotEmpty)
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TvSectionHeader(
+                      title: '❤️  Favoris',
+                      onSeeAll: () => onGoSection(_TvSection.favourites),
+                    ),
+                    ...favourites.take(5).toList().asMap().entries.map((e) {
+                      final song = e.value;
+                      return _HomeFavTile(
+                        song: song,
+                        queue: favourites,
+                        index: e.key,
+                      );
+                    }),
+                  ],
+                )),
+            ],
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 }
 
-// ── Chip écoutes récentes ─────────────────────────────────────────────────────
+// ── Chip écoutes récentes ──────────────────────────────────────────────────────
 class _RecentHistoryChip extends StatefulWidget {
   final Song song;
   const _RecentHistoryChip({required this.song});
@@ -446,50 +578,50 @@ class _RecentHistoryChipState extends State<_RecentHistoryChip> {
   @override
   Widget build(BuildContext context) {
     final artwork = '${SwingApiService().baseUrl}/img/thumbnail/${widget.song.image ?? widget.song.hash}';
-    final player = context.read<PlayerProvider>();
+    final player  = context.read<PlayerProvider>();
+    final isPlaying = context.watch<PlayerProvider>().currentSong?.hash == widget.song.hash;
+
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
       onKeyEvent: (_, event) => handleDpadSelect(event, () => player.playSong(widget.song)),
       child: GestureDetector(
         onTap: () => player.playSong(widget.song),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 280,
-          padding: const EdgeInsets.all(10),
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: _hasFocus ? Colors.white.withOpacity(0.12) : Sp.surface,
-            borderRadius: BorderRadius.circular(12),
+            color: _hasFocus
+                ? Colors.white.withOpacity(0.12)
+                : (isPlaying ? Sp.focus.withOpacity(0.15) : Sp.surface),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: _hasFocus ? Colors.white : Colors.transparent,
+              color: _hasFocus ? Colors.white : (isPlaying ? Sp.focus : Colors.transparent),
               width: 2,
             ),
           ),
-          child: Row(
-            children: [
-              TvArtworkImage(url: artwork, size: 64, borderRadius: BorderRadius.circular(8)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(widget.song.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(widget.song.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Sp.textDim, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: Row(children: [
+            TvArtworkImage(url: artwork, size: 44, borderRadius: BorderRadius.circular(6)),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(widget.song.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(widget.song.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Sp.textDim, fontSize: 11)),
+              ],
+            )),
+            if (isPlaying)
+              const Icon(Icons.graphic_eq_rounded, color: Sp.focus, size: 16),
+          ]),
         ),
       ),
     );
   }
 }
 
-// ── Carte album (accueil) ──────────────────────────────────────────────────────
+// ── Carte album ────────────────────────────────────────────────────────────────
 class _HomeAlbumCard extends StatelessWidget {
   final Album album;
   const _HomeAlbumCard({required this.album});
@@ -497,35 +629,29 @@ class _HomeAlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = '${SwingApiService().baseUrl}/img/thumbnail/${album.image}';
     return TvFocusCard(
-      width: 160,
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => AlbumTvScreen(album: album),
-      )),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TvArtworkImage(url: url, size: 160, borderRadius: BorderRadius.zero, fallbackIcon: Icons.album_rounded),
-          Container(
-            color: Sp.surface,
-            padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(album.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Sp.textDim, fontSize: 12)),
-              ],
-            ),
-          ),
-        ],
-      ),
+      width: 150,
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => AlbumTvScreen(album: album))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TvArtworkImage(url: url, size: 150, borderRadius: BorderRadius.zero,
+            fallbackIcon: Icons.album_rounded),
+        Container(
+          width: 150,
+          color: Sp.surface,
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(album.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Sp.textDim, fontSize: 11)),
+          ]),
+        ),
+      ]),
     );
   }
 }
 
-// ── Carte artiste (accueil) ────────────────────────────────────────────────────
+// ── Carte artiste ──────────────────────────────────────────────────────────────
 class _HomeArtistCard extends StatelessWidget {
   final Artist artist;
   const _HomeArtistCard({required this.artist});
@@ -533,70 +659,141 @@ class _HomeArtistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = '${SwingApiService().baseUrl}/img/artist/small/${artist.hash}.webp';
     return TvFocusCard(
-      width: 150,
-      borderRadius: BorderRadius.circular(75),
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ArtistDetailTvScreen(artist: artist),
-      )),
+      width: 120,
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ArtistDetailTvScreen(artist: artist))),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          TvArtworkImage(
-            url: url, size: 140,
-            borderRadius: BorderRadius.circular(70),
-            fallbackIcon: Icons.person_rounded,
+          ClipOval(child: TvArtworkImage(url: url, size: 100, fallbackIcon: Icons.person_rounded)),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(artist.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
           ),
-          const SizedBox(height: 6),
-          Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
 
-// ── Carte playlist (accueil) ───────────────────────────────────────────────────
-class _HomePlaylistCard extends StatelessWidget {
+// ── Tuile playlist (liste compacte) ───────────────────────────────────────────
+class _HomePlaylistTile extends StatefulWidget {
   final Playlist playlist;
-  const _HomePlaylistCard({required this.playlist});
+  const _HomePlaylistTile({required this.playlist});
+  @override State<_HomePlaylistTile> createState() => _HomePlaylistTileState();
+}
+class _HomePlaylistTileState extends State<_HomePlaylistTile> {
+  bool _hasFocus = false;
   @override
   Widget build(BuildContext context) {
-    final url = playlist.imageHash != null
-        ? '${SwingApiService().baseUrl}/img/playlist/${playlist.imageHash}.webp'
-        : '';
-    return TvFocusCard(
-      width: 170,
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => PlaylistDetailTvScreen(playlist: playlist),
-      )),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          url.isNotEmpty
-              ? TvArtworkImage(url: url, size: 170, borderRadius: BorderRadius.zero, fallbackIcon: Icons.queue_music_rounded)
-              : Container(
-                  width: 170, height: 130,
-                  color: Sp.surface,
-                  child: const Icon(Icons.queue_music_rounded, color: Colors.white24, size: 56),
-                ),
-          Container(
-            color: Sp.surface,
-            padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text('${playlist.trackCount} titres',
-                  style: const TextStyle(color: Sp.textDim, fontSize: 12)),
-            ]),
+    return Focus(
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event, () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => PlaylistDetailTvScreen(playlist: widget.playlist)))),
+      child: GestureDetector(
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => PlaylistDetailTvScreen(playlist: widget.playlist))),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: _hasFocus ? Colors.white.withOpacity(0.1) : Sp.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _hasFocus ? Colors.white : Colors.transparent, width: 2),
           ),
-        ],
+          child: Row(children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: Sp.focus.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.queue_music_rounded, color: Sp.focus, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('${widget.playlist.trackCount} titres',
+                    style: const TextStyle(color: Sp.textDim, fontSize: 12)),
+              ],
+            )),
+            Icon(Icons.chevron_right_rounded, color: _hasFocus ? Colors.white : Sp.textDim, size: 20),
+          ]),
+        ),
       ),
     );
   }
 }
 
-// ── Bouton refresh ────────────────────────────────────────────────────────────
+// ── Tuile favori ───────────────────────────────────────────────────────────────
+class _HomeFavTile extends StatefulWidget {
+  final Song song;
+  final List<Song> queue;
+  final int index;
+  const _HomeFavTile({required this.song, required this.queue, required this.index});
+  @override State<_HomeFavTile> createState() => _HomeFavTileState();
+}
+class _HomeFavTileState extends State<_HomeFavTile> {
+  bool _hasFocus = false;
+  @override
+  Widget build(BuildContext context) {
+    final player = context.read<PlayerProvider>();
+    final isPlaying = context.watch<PlayerProvider>().currentSong?.hash == widget.song.hash;
+
+    return Focus(
+      onFocusChange: (f) => setState(() => _hasFocus = f),
+      onKeyEvent: (_, event) => handleDpadSelect(event,
+          () => player.playSong(widget.song, queue: widget.queue, index: widget.index)),
+      child: GestureDetector(
+        onTap: () => player.playSong(widget.song, queue: widget.queue, index: widget.index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: _hasFocus ? Colors.white.withOpacity(0.1)
+                : (isPlaying ? Sp.focus.withOpacity(0.1) : Sp.surface),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _hasFocus ? Colors.white : (isPlaying ? Sp.focus : Colors.transparent),
+              width: 2,
+            ),
+          ),
+          child: Row(children: [
+            if (isPlaying)
+              const Icon(Icons.graphic_eq_rounded, color: Sp.focus, size: 20)
+            else
+              Text('${widget.index + 1}',
+                  style: TextStyle(color: _hasFocus ? Colors.white : Sp.textDim,
+                      fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.song.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: isPlaying ? Sp.focus : Colors.white,
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(widget.song.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Sp.textDim, fontSize: 11)),
+              ],
+            )),
+            Text(widget.song.formattedDuration,
+                style: TextStyle(color: _hasFocus ? Colors.white : Sp.textDim, fontSize: 12)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bouton refresh ─────────────────────────────────────────────────────────────
 class _RefreshBtn extends StatefulWidget {
   final VoidCallback onTap;
   const _RefreshBtn({required this.onTap});
@@ -611,14 +808,15 @@ class _RefreshBtnState extends State<_RefreshBtn> {
     child: GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.all(10),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: _hasFocus ? Colors.white.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: _hasFocus ? Colors.white : Colors.transparent),
         ),
-        child: Icon(Icons.refresh_rounded, color: _hasFocus ? Colors.white : Sp.textDim, size: 24),
+        child: Icon(Icons.refresh_rounded,
+            color: _hasFocus ? Colors.white : Sp.textDim, size: 22),
       ),
     ),
   );
@@ -631,54 +829,41 @@ class AlbumsTvSection extends StatefulWidget {
   const AlbumsTvSection({super.key});
   @override State<AlbumsTvSection> createState() => _AlbumsTvSectionState();
 }
-
 class _AlbumsTvSectionState extends State<AlbumsTvSection> {
-  List<Album> _albums = [];
-  bool _loading = true;
-
+  List<Album> _albums  = [];
+  bool        _loading = true;
   @override
   void initState() { super.initState(); _load(); }
-
   Future<void> _load() async {
     try {
       final res = await SwingApiService().getAlbums(limit: 200);
       if (mounted) setState(() { _albums = res; _loading = false; });
     } catch (_) { if (mounted) setState(() => _loading = false); }
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const TvSectionHeader(title: '💿  Albums'),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Sp.focus))
-                : _albums.isEmpty
-                    ? const Center(child: Text('Aucun album', style: TextStyle(color: Sp.textDim, fontSize: 18)))
-                    : GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          childAspectRatio: 0.78,
-                        ),
-                        itemCount: _albums.length,
-                        itemBuilder: (ctx, i) => _AlbumGridCard(album: _albums[i], autoFocus: i == 0),
-                      ),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const TvSectionHeader(title: '💿  Albums'),
+        Expanded(child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Sp.focus))
+            : _albums.isEmpty
+                ? const Center(child: Text('Aucun album', style: TextStyle(color: Sp.textDim, fontSize: 18)))
+                : GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5, crossAxisSpacing: 16,
+                      mainAxisSpacing: 16, childAspectRatio: 0.78),
+                    itemCount: _albums.length,
+                    itemBuilder: (ctx, i) => _AlbumGridCard(album: _albums[i], autoFocus: i == 0),
+                  )),
+      ]),
     );
   }
 }
-
 class _AlbumGridCard extends StatelessWidget {
   final Album album;
-  final bool autoFocus;
+  final bool  autoFocus;
   const _AlbumGridCard({required this.album, this.autoFocus = false});
   @override
   Widget build(BuildContext context) {
@@ -686,30 +871,20 @@ class _AlbumGridCard extends StatelessWidget {
     return TvFocusCard(
       autoFocus: autoFocus,
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AlbumTvScreen(album: album))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: TvArtworkImage(url: url, size: double.infinity, borderRadius: BorderRadius.zero, fallbackIcon: Icons.album_rounded),
-          ),
-          Container(
-            color: Sp.surface,
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(album.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Sp.textDim, fontSize: 12)),
-            ]),
-          ),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: TvArtworkImage(url: url, size: double.infinity,
+            borderRadius: BorderRadius.zero, fallbackIcon: Icons.album_rounded)),
+        Container(
+          color: Sp.surface,
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 9),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(album.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Sp.textDim, fontSize: 11)),
+          ]),
+        ),
+      ]),
     );
   }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Stubs pour les écrans navigués depuis home (définis dans leurs fichiers)
-// Les imports sont faits en haut — ces classes doivent exister
-// ══════════════════════════════════════════════════════════════════════════════

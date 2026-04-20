@@ -820,17 +820,18 @@ class _AudioSection extends StatelessWidget {
         const Text('Choisir selon la bande passante',
             style: TextStyle(color: Sp.textDim, fontSize: 13)),
         const SizedBox(height: 12),
-        Row(children: [
-          for (final q in ['auto', 'lossless', 'high', 'medium'])
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _QualityChip(
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            for (final q in ['auto', 'lossless', 'high', 'medium'])
+              _QualityChip(
                 label: q[0].toUpperCase() + q.substring(1),
                 selected: audioQuality == q,
                 onTap: () => onQuality(q),
               ),
-            ),
-        ]),
+          ],
+        ),
       ]),
     ]);
   }

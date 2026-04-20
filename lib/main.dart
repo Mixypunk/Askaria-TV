@@ -32,8 +32,16 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
-  // Focus & UI initialization
-  // JustAudioBackground is removed for TV to avoid crashes without complex Manifest services.
+  // Initialiser just_audio_background AVANT runApp
+  // Sans cet appel, just_audio crashe silencieusement au premier play()
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.mixypunk.askaria_tv.channel.audio',
+    androidNotificationChannelName: 'Askaria TV — Lecture',
+    androidNotificationIcon: 'mipmap/ic_launcher',
+    androidShowNotificationBadge: true,
+    androidNotificationOngoing: false,
+    preloadArtwork: false,
+  );
 
   runApp(const AskariaTvWrapper());
 }
