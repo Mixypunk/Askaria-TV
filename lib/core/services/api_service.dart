@@ -90,31 +90,75 @@ class SwingApiService {
   }
 
   // ── AUTH ───────────────────────────────────────────────────────────────
+  /// Login — lance une [Exception] avec un message lisible en cas d'erreur.
+  /// Retourne true uniquement si l'authentification a réussi.
   Future<bool> login(String username, String password) async {
+    // Vérification basique de l'URL
+    if (_baseUrl.isEmpty || !_baseUrl.startsWith('http')) {
+      throw Exception('URL du serveur invalide. Vérifiez l\'adresse (ex: http://192.168.1.x:7777)');
+    }
+
+    http.Response response;
     try {
-      final response = await http.post(
+      response = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'username': username, 'password': password}),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // L'app officielle utilise "accesstoken" (sans underscore)
-        final token = data['accesstoken'] ?? data['access_token'] ?? data['token'];
-        if (token != null) {
-          await _storeTokens(token.toString(), 
-            (data['refreshtoken'] ?? data['refresh_token'])?.toString());
-          return true;
-        }
-      }
-      return false;
+      ).timeout(const Duration(seconds: 12));
     } on TimeoutException {
-      debugPrint('Login timeout — serveur inaccessible');
-      return false;
+      throw Exception('Serveur inaccessible — délai dépassé. Vérifiez l\'URL et que le serveur est démarré.');
+    } on SocketException catch (e) {
+      throw Exception('Impossible de joindre le serveur (${e.message}). Vérifiez l\'URL et votre réseau.');
+    } on FormatException {
+      throw Exception('URL du serveur malformée. Vérifiez l\'adresse saisie.');
     } catch (e) {
-      debugPrint('Login error: $e');
-      return false;
+      throw Exception('Erreur réseau: $e');
+    }
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data;
+      try {
+        data = json.decode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        throw Exception('Réponse du serveur invalide.');
+      }
+      final token = data['accesstoken'] ?? data['access_token'] ?? data['token'];
+      if (token != null) {
+        await _storeTokens(
+          token.toString(),
+          (data['refreshtoken'] ?? data['refresh_token'])?.toString(),
+        );
+        return true;
+      }
+      throw Exception('Réponse inattendue du serveur (token manquant).');
+    } else if (response.statusCode == 401) {
+      // Extraire le message du serveur si disponible
+      String detail = 'Identifiants incorrects (email ou mot de passe erroné).';
+      try {
+        final err = json.decode(response.body);
+        if (err['detail'] != null) detail = err['detail'].toString();
+      } catch (_) {}
+      throw Exception(detail);
+    } else if (response.statusCode == 429) {
+      throw Exception('Trop de tentatives de connexion. Attendez 60 secondes avant de réessayer.');
+    } else if (response.statusCode == 403) {
+      String detail = 'Compte désactivé. Contactez l\'administrateur.';
+      try {
+        final err = json.decode(response.body);
+        if (err['detail'] != null) detail = err['detail'].toString();
+      } catch (_) {}
+      throw Exception(detail);
+    } else if (response.statusCode == 400) {
+      String detail = 'Requête invalide.';
+      try {
+        final err = json.decode(response.body);
+        if (err['detail'] != null) detail = err['detail'].toString();
+      } catch (_) {}
+      throw Exception(detail);
+    } else if (response.statusCode == 404) {
+      throw Exception('Route de login introuvable (${response.statusCode}). Vérifiez l\'URL du serveur.');
+    } else {
+      throw Exception('Erreur serveur (HTTP ${response.statusCode}).');
     }
   }
 
@@ -138,6 +182,80 @@ class SwingApiService {
     } catch (_) {}
     return false;
   }
+
+  // ── TV Pairing — code 6 chiffres ──────────────────────────────────────────────
+
+  /// Demande un nouveau code 6 chiffres au serveur (TV non authentifiée).
+  /// Retourne le code sous forme de chaîne (ex: "482619").
+  /// Lance une Exception en cas d'erreur réseau ou de rate-limit.
+  Future<String> createTvPairCode() async {
+    if (_baseUrl.isEmpty || !_baseUrl.startsWith('http')) {
+      throw Exception('URL du serveur invalide.');
+    }
+    http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$_baseUrl/auth/tv/code'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      throw Exception('Serveur inaccessible — délai dépassé.');
+    } on SocketException catch (e) {
+      throw Exception('Réseau inaccessible (${e.message}).');
+    } catch (e) {
+      throw Exception('Erreur réseau: $e');
+    }
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return data['code'].toString();
+    } else if (response.statusCode == 429) {
+      throw Exception('Trop de demandes. Attendez 60 secondes.');
+    } else {
+      throw Exception('Erreur serveur (HTTP ${response.statusCode}).');
+    }
+  }
+
+  /// Poll le serveur pour savoir si le mobile a validé le code.
+  /// Retourne :
+  ///   - `null`  → en attente (pending)
+  ///   - `Map`   → tokens reçus (approved) — contient accesstoken + refreshtoken + user
+  /// Lance une Exception si le code est expiré ou invalide.
+  Future<Map<String, dynamic>?> pollTvPair(String code) async {
+    http.Response response;
+    try {
+      final uri = Uri.parse('$_baseUrl/auth/tv/poll')
+          .replace(queryParameters: {'code': code});
+      response = await http.get(uri, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      // Timeout réseau → on ignore et on repolls au prochain tour
+      return null;
+    } catch (_) {
+      return null;
+    }
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      if (data['status'] == 'approved') {
+        // Stocker les tokens
+        final token = data['accesstoken'] ?? data['access_token'];
+        final refresh = data['refreshtoken'] ?? data['refresh_token'];
+        if (token != null) {
+          await _storeTokens(token.toString(), refresh?.toString());
+        }
+        return data;
+      }
+      return null; // pending
+    } else if (response.statusCode == 410) {
+      // Code expiré
+      final err = json.decode(response.body);
+      throw Exception(err['detail']?.toString() ?? 'Code expiré.');
+    } else {
+      throw Exception('Erreur lors du poll (HTTP ${response.statusCode}).');
+    }
+  }
+
 
   Future<void> logout() async {
     _accessToken = null;
