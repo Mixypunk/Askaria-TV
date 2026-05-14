@@ -456,13 +456,13 @@ class _LoginTvScreenState extends State<LoginTvScreen>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Sp.g1.withValues(alpha: 0.15),
-                        Sp.g2.withValues(alpha: 0.15),
+                        Sp.g1.withOpacity(0.15),
+                        Sp.g2.withOpacity(0.15),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: Sp.g2.withValues(alpha: 0.4), width: 2),
+                        color: Sp.g2.withOpacity(0.4), width: 2),
                   ),
                   child: ShaderMask(
                     shaderCallback: (b) => kGrad.createShader(b),
@@ -489,7 +489,7 @@ class _LoginTvScreenState extends State<LoginTvScreen>
                       width: 14, height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Sp.g2.withValues(alpha: 0.7),
+                        color: Sp.g2.withOpacity(0.7),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -570,8 +570,8 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     decoration: BoxDecoration(
-      color: Colors.red.withValues(alpha: 0.15),
-      border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+      color: Colors.red.withOpacity(0.15),
+      border: Border.all(color: Colors.red.withOpacity(0.5)),
       borderRadius: BorderRadius.circular(8),
     ),
     child: Row(
@@ -592,8 +592,8 @@ class _SuccessBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     decoration: BoxDecoration(
-      color: Colors.green.withValues(alpha: 0.15),
-      border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+      color: Colors.green.withOpacity(0.15),
+      border: Border.all(color: Colors.green.withOpacity(0.5)),
       borderRadius: BorderRadius.circular(8),
     ),
     child: Row(
@@ -728,7 +728,7 @@ class _TvButtonState extends State<_TvButton> {
           boxShadow: _hasFocus
               ? [
                   BoxShadow(
-                      color: Sp.g2.withValues(alpha: 0.5),
+                      color: Sp.g2.withOpacity(0.5),
                       blurRadius: 15,
                       spreadRadius: 2)
                 ]
