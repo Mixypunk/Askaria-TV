@@ -44,6 +44,7 @@ class HomeTvScreen extends StatefulWidget {
 
 class _HomeTvScreenState extends State<HomeTvScreen> {
   _TvSection _section = _TvSection.home;
+  final _rootFocus = FocusNode(debugLabel: 'HomeTvRoot');
 
   // Home data
   List<Album>    _recentAlbums    = [];
@@ -52,6 +53,12 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
   List<Playlist> _recentPlaylists = [];
   List<Song>     _favourites      = [];
   bool _loadingHome = true;
+
+  @override
+  void dispose() {
+    _rootFocus.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -111,18 +118,26 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Sp.bg,
-      body: KeyboardListener(
-        focusNode: FocusNode(),
-        onKeyEvent: (event) {
-          if (event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.goBack &&
-              _section != _TvSection.home) {
-            setState(() => _section = _TvSection.home);
+      body: Focus(
+        // FocusNode PERSISTANT (dans l'état) — pas recréé à chaque rebuild
+        focusNode: _rootFocus,
+        autofocus: true,
+        onKeyEvent: (_, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          // Bouton Back universel (Android TV + Xiaomi + Amazon Fire)
+          if (event.logicalKey == LogicalKeyboardKey.goBack ||
+              event.logicalKey == LogicalKeyboardKey.escape  ||
+              event.logicalKey == LogicalKeyboardKey.browserBack) {
+            if (_section != _TvSection.home) {
+              setState(() => _section = _TvSection.home);
+              return KeyEventResult.handled;
+            }
           }
+          return KeyEventResult.ignored;
         },
         child: Column(
           children: [
-            // ── Main area (sidebar + content) ──────────────────────────────
+            // ── Main area (sidebar + content) ─────────────────────────────
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,7 +154,7 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
                 ],
               ),
             ),
-            // ── Mini player (barre fixe au bas de l'écran) ─────────────────
+            // ── Mini player (barre fixe au bas de l'écran) ────────────────
             const _BottomPlayerBar(),
           ],
         ),
@@ -174,15 +189,18 @@ class _TvSidebar extends StatelessWidget {
           ),
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 8),
-          // Nav items
+          // Nav items — autofocus sur le premier
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              children: _navItems.map((item) {
+              children: _navItems.asMap().entries.map((e) {
+                final index = e.key;
+                final item  = e.value;
                 return _SidebarItem(
                   icon: item.$2,
                   label: item.$3,
                   active: current == item.$1,
+                  autoFocus: index == 0,   // ← autofocus sur Accueil
                   onSelect: () => onSelect(item.$1),
                 );
               }).toList(),
@@ -198,10 +216,12 @@ class _SidebarItem extends StatefulWidget {
   final IconData icon;
   final String   label;
   final bool     active;
+  final bool     autoFocus;
   final VoidCallback onSelect;
   const _SidebarItem({
     required this.icon, required this.label,
     required this.active, required this.onSelect,
+    this.autoFocus = false,
   });
   @override
   State<_SidebarItem> createState() => _SidebarItemState();
@@ -225,6 +245,7 @@ class _SidebarItemState extends State<_SidebarItem> {
       ),
       textStyle: const TextStyle(color: Colors.white, fontSize: 14),
       child: Focus(
+        autofocus: widget.autoFocus,   // ← premier item reçoit le focus
         onFocusChange: (f) => setState(() => _hasFocus = f),
         onKeyEvent: (_, event) => handleDpadSelect(event, widget.onSelect),
         child: GestureDetector(
@@ -493,14 +514,10 @@ class _HomeContent extends StatelessWidget {
               title: '💿  Albums',
               onSeeAll: () => onGoSection(_TvSection.albums),
             ),
-            SizedBox(
+            TvHorizontalList(
               height: 200,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: recentAlbums.length.clamp(0, 12),
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (ctx, i) => _HomeAlbumCard(album: recentAlbums[i]),
-              ),
+              itemCount: recentAlbums.length.clamp(0, 12),
+              itemBuilder: (ctx, i) => _HomeAlbumCard(album: recentAlbums[i]),
             ),
             const SizedBox(height: 28),
           ],
@@ -511,14 +528,10 @@ class _HomeContent extends StatelessWidget {
               title: '🎤  Artistes',
               onSeeAll: () => onGoSection(_TvSection.artists),
             ),
-            SizedBox(
+            TvHorizontalList(
               height: 160,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: topArtists.length.clamp(0, 10),
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (ctx, i) => _HomeArtistCard(artist: topArtists[i]),
-              ),
+              itemCount: topArtists.length.clamp(0, 10),
+              itemBuilder: (ctx, i) => _HomeArtistCard(artist: topArtists[i]),
             ),
             const SizedBox(height: 28),
           ],

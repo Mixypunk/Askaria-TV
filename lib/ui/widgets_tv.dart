@@ -4,19 +4,28 @@ import '../main.dart';
 import '../core/services/api_service.dart';
 
 // ── Helper D-Pad ──────────────────────────────────────────────────────────────
-// Sur Android TV, le bouton OK/Select de la télécommande envoie
-// LogicalKeyboardKey.select (ou .enter selon le device).
-// GestureDetector.onTap seul NE RÉPOND PAS au D-Pad select.
+// Sur Android TV, le bouton OK/Select envoie LogicalKeyboardKey.select
+// (ou .enter selon le constructeur de la télécommande).
+// IMPORTANT : on gère aussi KeyRepeatEvent pour les appuis longs.
 KeyEventResult handleDpadSelect(KeyEvent event, VoidCallback onTap) {
-  if (event is KeyDownEvent &&
+  if ((event is KeyDownEvent) &&
       (event.logicalKey == LogicalKeyboardKey.select ||
        event.logicalKey == LogicalKeyboardKey.enter  ||
+       event.logicalKey == LogicalKeyboardKey.numpadEnter ||
        event.logicalKey == LogicalKeyboardKey.space)) {
     onTap();
     return KeyEventResult.handled;
   }
   return KeyEventResult.ignored;
 }
+
+/// Vérifie si un KeyEvent est une flèche directionnelle.
+bool isArrowKey(KeyEvent e) =>
+    e.logicalKey == LogicalKeyboardKey.arrowLeft  ||
+    e.logicalKey == LogicalKeyboardKey.arrowRight ||
+    e.logicalKey == LogicalKeyboardKey.arrowUp    ||
+    e.logicalKey == LogicalKeyboardKey.arrowDown;
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TvFocusCard — carte générique focusable D-Pad
@@ -618,6 +627,156 @@ class _TvIconButtonState extends State<TvIconButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TvHorizontalList — liste horizontale D-Pad friendly
+//
+// Problème des ListView.horizontal standard sur TV :
+//   • Les touches ArrowLeft/Right scrollent la liste MAIS le focus reste
+//     piégé dedans — impossible de revenir à la sidebar.
+//   • La solution : chaque item est un TvFocusCard normal, Flutter gère
+//     le traversal horizontal automatiquement si on enveloppe dans un
+//     FocusTraversalGroup avec ReadingOrderTraversalPolicy.
+//
+// Usage :
+//   TvHorizontalList(
+//     height: 200,
+//     itemCount: albums.length,
+//     itemBuilder: (ctx, i) => _HomeAlbumCard(album: albums[i]),
+//   )
+// ══════════════════════════════════════════════════════════════════════════════
+class TvHorizontalList extends StatefulWidget {
+  final double height;
+  final int itemCount;
+  final Widget Function(BuildContext, int) itemBuilder;
+  final double itemSpacing;
+
+  const TvHorizontalList({
+    super.key,
+    required this.height,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.itemSpacing = 14,
+  });
+
+  @override
+  State<TvHorizontalList> createState() => _TvHorizontalListState();
+}
+
+class _TvHorizontalListState extends State<TvHorizontalList> {
+  final _scroll = ScrollController();
+
+  void _scrollToIndex(int i) {
+    // Estimation : chaque item fait ~160px en moyenne
+    const estimatedItemWidth = 170.0;
+    final target = (i * estimatedItemWidth)
+        .clamp(0.0, _scroll.position.maxScrollExtent);
+    _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: widget.height,
+      child: FocusTraversalGroup(
+        // ReadingOrderTraversalPolicy : traversal gauche→droite naturel
+        policy: ReadingOrderTraversalPolicy(),
+        child: ListView.separated(
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          // Désactiver le scroll automatique de ListView sur les touches clavier
+          // (c'est nous qui scrollons via _scrollToIndex)
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+          itemCount: widget.itemCount,
+          separatorBuilder: (_, __) =>
+              SizedBox(width: widget.itemSpacing),
+          itemBuilder: (ctx, i) {
+            return Focus(
+              onFocusChange: (hasFocus) {
+                if (hasFocus) {
+                  // Auto-scroll vers l'item focalisé si le controller est prêt
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scroll.hasClients) _scrollToIndex(i);
+                  });
+                }
+              },
+              // Pas de onKeyEvent ici : on laisse Flutter gérer le traversal
+              // entre items (flèches gauche/droite). Les flèches haut/bas
+              // et gauche depuis le premier item remontent naturellement
+              // au parent (sidebar) grâce à FocusTraversalGroup.
+              child: widget.itemBuilder(ctx, i),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TvPage — wrapper standard pour toutes les pages TV
+//
+// Assure :
+//   • Un FocusNode persistant (pas recréé au rebuild)
+//   • autofocus: true sur le premier élément de la page
+//   • Gestion universelle du bouton Back (goBack sur toutes les télécommandes)
+// ══════════════════════════════════════════════════════════════════════════════
+class TvPage extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onBack;
+
+  const TvPage({super.key, required this.child, this.onBack});
+
+  @override
+  State<TvPage> createState() => _TvPageState();
+}
+
+class _TvPageState extends State<TvPage> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.goBack  ||
+        event.logicalKey == LogicalKeyboardKey.escape  ||
+        event.logicalKey == LogicalKeyboardKey.browserBack) {
+      if (widget.onBack != null) {
+        widget.onBack!();
+        return KeyEventResult.handled;
+      }
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: widget.child,
     );
   }
 }
