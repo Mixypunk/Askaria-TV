@@ -25,7 +25,12 @@ const kGrad = LinearGradient(colors: [Sp.g1, Sp.g2, Sp.g3]);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Capture les erreurs Flutter avant runApp (évite l'écran blanc)
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+  };
+
   // Bloquer en mode paysage pour la TV
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -33,15 +38,18 @@ Future<void> main() async {
   ]);
 
   // Initialiser just_audio_background AVANT runApp
-  // Sans cet appel, just_audio crashe silencieusement au premier play()
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.mixypunk.askaria_tv.channel.audio',
-    androidNotificationChannelName: 'Askaria TV — Lecture',
-    androidNotificationIcon: 'mipmap/ic_launcher',
-    androidShowNotificationBadge: true,
-    androidNotificationOngoing: false,
-    preloadArtwork: false,
-  );
+  try {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.mixypunk.askaria_tv.channel.audio',
+      androidNotificationChannelName: 'Askaria TV — Lecture',
+      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidShowNotificationBadge: true,
+      androidNotificationOngoing: false,
+      preloadArtwork: false,
+    );
+  } catch (e) {
+    debugPrint('JustAudioBackground init error: $e');
+  }
 
   runApp(const AskariaTvWrapper());
 }
@@ -104,7 +112,7 @@ class _AskariaTvWrapperState extends State<AskariaTvWrapper> {
           // quand on navigue au D-Pad sur un élément.
           focusColor: Sp.focus.withOpacity(0.4),
           highlightColor: Sp.focus.withOpacity(0.2),
-          fontFamily: 'Montserrat', // Assure-toi d'avoir importé la font si besoin
+          // Pas de fontFamily personnalisée : police système par défaut Android TV
         ),
         home: _logged ? const HomeTvScreen() : const LoginTvScreen(),
       ),
