@@ -135,24 +135,32 @@ class UpdateService {
 
   // ── Installation via Intent Android natif ─────────────────────────────
   Future<void> installApk(String apkPath) async {
-    // Vérifier/demander la permission d'installer des sources inconnues
     if (Platform.isAndroid) {
       final status = await Permission.requestInstallPackages.status;
       if (!status.isGranted) {
+        // Première tentative de demande
         final result = await Permission.requestInstallPackages.request();
         if (!result.isGranted) {
-          throw Exception(
-            'Permission refusée. Activez "Sources inconnues" dans les paramètres Android.');
+          // Sur Android TV, le système redirige vers les paramètres
+          // Ouvrir explicitement les réglages si Android ne l'a pas fait
+          await openAppSettings();
+          // Attendre que l'utilisateur revienne et re-vérifier
+          await Future.delayed(const Duration(seconds: 4));
+          final recheck = await Permission.requestInstallPackages.status;
+          if (!recheck.isGranted) {
+            throw Exception(
+              'Permission refusée.\n'
+              'Dans les paramètres Android, autorisez Askaria TV '
+              'à installer des applications.');
+          }
         }
       }
     }
 
     try {
-      // Utiliser le MethodChannel pour lancer l'Intent natif avec FileProvider
       await _installChannel.invokeMethod('installApk', {'path': apkPath});
     } catch (e) {
-      debugPrint('Install via channel failed: $e — fallback open_file');
-      // Fallback : ouvrir directement
+      debugPrint('Install via channel failed: $e');
       throw Exception('Impossible de lancer l\'installeur : $e');
     }
   }
@@ -306,9 +314,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
       if (mounted) setState(() => _step = _Step.done);
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) setState(() {
         _step = _Step.idle;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = msg.contains('Permission') || msg.contains('permission')
+            ? '⚠️ Autorisation manquante.\n'
+              'Appuyez sur "Paramètres" ci-dessous, puis activez\n'
+              '"Autoriser les sources inconnues" pour Askaria TV.'
+            : msg;
       });
     }
   }
