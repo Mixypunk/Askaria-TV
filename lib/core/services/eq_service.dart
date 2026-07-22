@@ -68,8 +68,8 @@ class EqService extends ChangeNotifier {
       _labels = bands.map((b) {
         final hz = b.centerFrequency.round();
         return hz >= 1000
-            ? "\${(hz/1000).toStringAsFixed(hz % 1000 == 0 ? 0 : 1)}k"
-            : "\$hz";
+            ? "${(hz/1000).toStringAsFixed(hz % 1000 == 0 ? 0 : 1)}k"
+            : "$hz";
       }).toList();
 
       final prefs = await SharedPreferences.getInstance();
@@ -88,7 +88,7 @@ class EqService extends ChangeNotifier {
       await _applyGains();
       notifyListeners();
     } catch (e) {
-      debugPrint("EQ loadSettings: \$e");
+      debugPrint("EQ loadSettings: $e");
       _supported = false;
     }
   }
@@ -132,7 +132,7 @@ class EqService extends ChangeNotifier {
         await bands[i].setGain(_enabled ? _gains[i] : 0.0);
       }
     } catch (e) {
-      debugPrint("EQ applyGains: \$e");
+      debugPrint("EQ applyGains: $e");
     }
   }
 }

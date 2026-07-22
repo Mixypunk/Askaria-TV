@@ -15,8 +15,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.mixypunk.askaria_tv"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -47,7 +47,7 @@ android {
 
     defaultConfig {
         applicationId = "com.mixypunk.askaria_tv"
-        minSdk        = 21
+        minSdk        = 24
         targetSdk     = flutter.targetSdkVersion
         versionCode   = flutter.versionCode
         versionName   = flutter.versionName
@@ -56,7 +56,7 @@ android {
     buildTypes {
         release {
             // ✅ Signature release (même clé à chaque build → MAJ acceptées)
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled  = false
             isShrinkResources = false
         }

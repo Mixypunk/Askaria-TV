@@ -37,9 +37,9 @@ class MainActivity : FlutterActivity() {
 
     private fun installApk(apkPath: String) {
         val file = File(apkPath)
-        if (!file.exists()) throw Exception("Fichier introuvable : \$apkPath")
+        if (!file.exists()) throw Exception("Fichier introuvable : $apkPath")
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            FileProvider.getUriForFile(this, "\${applicationContext.packageName}.fileprovider", file)
+            FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
         } else {
             Uri.fromFile(file)
         }

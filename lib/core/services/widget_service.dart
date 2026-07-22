@@ -50,7 +50,7 @@ class WidgetService {
         'auth_token': authToken ?? '',
       });
     } catch (e) {
-      debugPrint('Widget update error: \$e');
+      debugPrint('Widget update error: $e');
     }
   }
 }

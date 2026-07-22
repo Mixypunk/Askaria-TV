@@ -7,6 +7,7 @@ import 'core/providers/player_provider.dart';
 import 'core/services/api_service.dart';
 import 'ui/login_tv.dart';
 import 'ui/home_tv.dart';
+import 'core/services/theme_notifier.dart';
 
 // --- TV Design System ---
 class Sp {
@@ -75,6 +76,7 @@ class _AskariaTvWrapperState extends State<AskariaTvWrapper> {
     try {
       final api = SwingApiService();
       await api.loadSettings();
+      await ThemeNotifier.instance.load();
       _logged = await api.checkAuth();
     } catch (_) {
       _logged = false;
@@ -95,26 +97,34 @@ class _AskariaTvWrapperState extends State<AskariaTvWrapper> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider.value(value: ThemeNotifier.instance),
       ],
-      child: MaterialApp(
-        title: 'Askaria TV',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: false,
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: Sp.bg,
-          colorScheme: const ColorScheme.dark(
-            primary: Sp.focus,
-            surface: Sp.surface,
-            background: Sp.bg,
-          ),
-          // Configuration cruciale pour la TV : l'highlight color est utilisé
-          // quand on navigue au D-Pad sur un élément.
-          focusColor: Sp.focus.withOpacity(0.4),
-          highlightColor: Sp.focus.withOpacity(0.2),
-          // Pas de fontFamily personnalisée : police système par défaut Android TV
-        ),
-        home: _logged ? const HomeTvScreen() : const LoginTvScreen(),
+      child: Consumer<ThemeNotifier>(
+        builder: (context, themeNotifier, child) {
+          return MaterialApp(
+            title: 'Askaria TV',
+            debugShowCheckedModeBanner: false,
+            themeMode: themeNotifier.mode,
+            theme: ThemeData(
+              useMaterial3: false,
+              brightness: Brightness.light,
+              // Light theme settings if needed, or simply adapt
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: false,
+              brightness: Brightness.dark,
+              scaffoldBackgroundColor: Sp.bg,
+              colorScheme: const ColorScheme.dark(
+                primary: Sp.focus,
+                surface: Sp.surface,
+                background: Sp.bg,
+              ),
+              focusColor: Sp.focus.withOpacity(0.4),
+              highlightColor: Sp.focus.withOpacity(0.2),
+            ),
+            home: _logged ? const HomeTvScreen() : const LoginTvScreen(),
+          );
+        },
       ),
     );
   }

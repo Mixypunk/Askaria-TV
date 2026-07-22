@@ -18,18 +18,29 @@ import 'player_tv.dart';
 import 'artists_tv.dart';
 import 'favourites_tv.dart';
 
+import 'genres_tv.dart';
+import 'decades_tv.dart';
+import 'history_tv.dart';
+import 'stats_tv.dart';
+import 'profile_tv.dart';
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Navigation
 // ══════════════════════════════════════════════════════════════════════════════
-enum _TvSection { home, search, albums, artists, playlists, favourites, settings }
+enum _TvSection { home, search, albums, artists, genres, decades, playlists, favourites, history, stats, profile, settings }
 
 const _navItems = [
   (_TvSection.home,       Icons.home_rounded,         'Accueil'),
   (_TvSection.search,     Icons.search_rounded,        'Recherche'),
   (_TvSection.albums,     Icons.album_rounded,         'Albums'),
   (_TvSection.artists,    Icons.person_rounded,        'Artistes'),
+  (_TvSection.genres,     Icons.category_rounded,      'Genres'),
+  (_TvSection.decades,    Icons.date_range_rounded,    'Décennies'),
   (_TvSection.playlists,  Icons.queue_music_rounded,   'Playlists'),
   (_TvSection.favourites, Icons.favorite_rounded,      'Favoris'),
+  (_TvSection.history,    Icons.history_rounded,       'Historique'),
+  (_TvSection.stats,      Icons.bar_chart_rounded,     'Statistiques'),
+  (_TvSection.profile,    Icons.person_rounded,        'Profil'),
   (_TvSection.settings,   Icons.settings_rounded,      'Paramètres'),
 ];
 
@@ -108,8 +119,13 @@ class _HomeTvScreenState extends State<HomeTvScreen> {
       case _TvSection.search:     return const SearchTvScreen();
       case _TvSection.albums:     return const AlbumsTvSection();
       case _TvSection.artists:    return const ArtistsTvSection();
+      case _TvSection.genres:     return const GenresTvScreen();
+      case _TvSection.decades:    return const DecadesTvScreen();
       case _TvSection.playlists:  return const LibraryTvScreen();
       case _TvSection.favourites: return const FavouritesTvSection();
+      case _TvSection.history:    return const HistoryTvScreen();
+      case _TvSection.stats:      return const StatsTvScreen();
+      case _TvSection.profile:    return const ProfileTvScreen();
       case _TvSection.settings:   return const SettingsTvScreen();
     }
   }

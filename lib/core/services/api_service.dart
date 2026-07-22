@@ -770,6 +770,80 @@ class SwingApiService {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getGenres() async {
+    try {
+      final r = await _authedGet(Uri.parse('$_baseUrl/genres'));
+      if (r.statusCode == 200) {
+        final data = json.decode(r.body);
+        final items = data['items'] ?? data['genres'] ?? (data is List ? data : []);
+        return List<Map<String, dynamic>>.from(items);
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Song>> getGenreTracks(String genre) async {
+    try {
+      final encoded = Uri.encodeComponent(genre);
+      final r = await _authedGet(Uri.parse('$_baseUrl/genres/$encoded/tracks'));
+      if (r.statusCode == 200) {
+        final data = json.decode(r.body);
+        final tracks = data is List ? data : (data['tracks'] ?? []);
+        return (tracks as List).map((e) => Song.fromJson(e)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getDecades() async {
+    try {
+      final r = await _authedGet(Uri.parse('$_baseUrl/decades'));
+      if (r.statusCode == 200) {
+        final data = json.decode(r.body);
+        final items = data['items'] ?? data['decades'] ?? (data is List ? data : []);
+        return List<Map<String, dynamic>>.from(items);
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Song>> getDecadeTracks(String decade) async {
+    try {
+      final r = await _authedGet(Uri.parse('$_baseUrl/decades/$decade/tracks'));
+      if (r.statusCode == 200) {
+        final data = json.decode(r.body);
+        final tracks = data is List ? data : (data['tracks'] ?? []);
+        return (tracks as List).map((e) => Song.fromJson(e)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Song>> searchDeezer(String query) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/downloader/deezer/search').replace(
+        queryParameters: {'q': query},
+      );
+      final r = await _authedGet(uri);
+      if (r.statusCode == 200) {
+        final data = json.decode(r.body);
+        final tracks = data['tracks'] ?? data['results'] ?? (data is List ? data : []);
+        return (tracks as List).map((e) => Song.fromJson(e)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<bool> downloadDeezerTrack(String trackId) async {
+    try {
+      final r = await _authedPost(
+        Uri.parse('$_baseUrl/downloader/deezer/$trackId'),
+        body: json.encode({}),
+      );
+      return r.statusCode == 200;
+    } catch (_) { return false; }
+  }
+
   // ── PROFIL ────────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> getMyProfile() async {
     try {
@@ -974,4 +1048,5 @@ class SwingApiService {
       if (file.existsSync()) await file.delete();
     } catch (_) {}
   }
+
 }

@@ -1,10 +1,11 @@
 import 'dart:ui';
-import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/player_provider.dart';
 import '../core/services/api_service.dart';
 import '../main.dart';
+import '../core/widgets/waveform_seekbar.dart';
 
 class PlayerTvScreen extends StatefulWidget {
   const PlayerTvScreen({super.key});
@@ -14,6 +15,30 @@ class PlayerTvScreen extends StatefulWidget {
 }
 
 class _PlayerTvScreenState extends State<PlayerTvScreen> {
+  List<double>? _waveform;
+  String? _waveformHash;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadWaveform();
+  }
+
+  Future<void> _loadWaveform() async {
+    final player = context.read<PlayerProvider>();
+    final song = player.currentSong;
+    if (song != null && song.hash != _waveformHash) {
+      _waveformHash = song.hash;
+      _waveform = null;
+      final peaks = await SwingApiService().getWaveform(song.hash);
+      if (mounted && _waveformHash == song.hash) {
+        setState(() {
+          _waveform = peaks;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = context.watch<PlayerProvider>();
@@ -118,32 +143,14 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                             ),
                             const SizedBox(width: 16),
                             Expanded(
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white30,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  FractionallySizedBox(
-                                    widthFactor: player.progress.clamp(0.0, 1.0),
-                                    child: Container(
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: primaryColor,
-                                        borderRadius: BorderRadius.circular(3),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: primaryColor.withAlpha(128),
-                                            blurRadius: 8,
-                                          )
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              child: WaveformSeekbar(
+                                peaks: _waveform,
+                                progress: player.progress,
+                                accentColor: primaryColor,
+                                onSeekDelta: (delta) {
+                                  final newSeconds = player.position.inSeconds + delta;
+                                  player.seek(Duration(seconds: newSeconds.clamp(0, player.duration.inSeconds)));
+                                },
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -159,6 +166,13 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            _PlayerControlButton(
+                              icon: player.isFavourite(song.hash) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              activeColor: player.isFavourite(song.hash) ? Colors.red : Sp.textDim,
+                              onTap: () => player.toggleFavourite(song.hash),
+                              size: 42,
+                            ),
+                            const SizedBox(width: 32),
                             _PlayerControlButton(
                               icon: Icons.shuffle_rounded,
                               activeColor: player.shuffle ? primaryColor : Sp.textDim,
@@ -191,6 +205,19 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                                     : Icons.repeat_rounded,
                               activeColor: player.repeatMode != RepeatMode.off ? primaryColor : Sp.textDim,
                               onTap: player.toggleRepeat,
+                              size: 42,
+                            ),
+                            const SizedBox(width: 32),
+                            _PlayerControlButton(
+                              icon: Icons.radio_rounded,
+                              activeColor: Sp.textDim,
+                              onTap: () async {
+                                final tracks = await SwingApiService().getRadio(song.hash);
+                                if (tracks.isNotEmpty && mounted) {
+                                  if (!context.mounted) return;
+                                  context.read<PlayerProvider>().playSong(tracks.first, queue: tracks, index: 0);
+                                }
+                              },
                               size: 42,
                             ),
                           ],

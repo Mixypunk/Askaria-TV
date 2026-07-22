@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,8 +73,8 @@ class _TvUpdateService {
     try {
       final l = latest.replaceFirst(RegExp(r'^v'), '').split('.').map(int.parse).toList();
       final c = current.replaceFirst(RegExp(r'^v'), '').split('.').map(int.parse).toList();
-      while (l.length < 3) l.add(0);
-      while (c.length < 3) c.add(0);
+      while (l.length < 3) { l.add(0); }
+      while (c.length < 3) { c.add(0); }
       for (int i = 0; i < 3; i++) {
         if (l[i] > c[i]) return true;
         if (l[i] < c[i]) return false;
@@ -282,17 +281,21 @@ class _SettingsTvScreenState extends State<SettingsTvScreen> {
         await dio.get(api.baseUrl,
             options: Options(validateStatus: (s) => s != null && s < 600));
         watch.stop();
-        if (mounted) setState(() {
-          _checking = false;
-          _serverOk = true;
-          _serverStatus = 'Serveur accessible — ${watch.elapsedMilliseconds} ms';
-        });
+        if (mounted) {
+          setState(() {
+            _checking = false;
+            _serverOk = true;
+            _serverStatus = 'Serveur accessible — ${watch.elapsedMilliseconds} ms';
+          });
+        }
       } catch (e) {
-        if (mounted) setState(() {
-          _checking = false;
-          _serverOk = false;
-          _serverStatus = 'Serveur inaccessible : $e';
-        });
+        if (mounted) {
+          setState(() {
+            _checking = false;
+            _serverOk = false;
+            _serverStatus = 'Serveur inaccessible : $e';
+          });
+        }
       }
     }
   }

@@ -650,6 +650,10 @@ class PlayerProvider extends ChangeNotifier {
         initialPosition: Duration(seconds: savedPos),
       );
 
+      _fetchLyrics();
+      _fetchColors();
+      _updateWidget();
+
       if (mounted) notifyListeners();
       debugPrint('Queue restaurée : ${restored.length} titres, index $_currentIndex');
     } catch (e) {

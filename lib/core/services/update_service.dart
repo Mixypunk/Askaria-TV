@@ -8,7 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _owner  = 'Mixypunk';
-const _repo   = 'askaria-Music';
+const _repo   = 'Askaria-TV';
 const _apiUrl = 'https://api.github.com/repos/$_owner/$_repo/releases/latest';
 
 // Canal MethodChannel pour lancer l'installeur APK natif Android
