@@ -67,8 +67,8 @@ class _TvFocusCardState extends State<TvFocusCard>
       vsync: this,
       duration: const Duration(milliseconds: 180),
     );
-    _scale = Tween<double>(begin: 1.0, end: 1.07).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOut),
+    _scale = Tween<double>(begin: 1.0, end: 1.09).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutBack),
     );
   }
 
@@ -102,10 +102,10 @@ class _TvFocusCardState extends State<TvFocusCard>
               borderRadius: widget.borderRadius,
               border: Border.all(
                 color: _hasFocus ? Colors.white : Colors.transparent,
-                width: 3,
+                width: _hasFocus ? 5 : 0,
               ),
               boxShadow: _hasFocus
-                  ? [BoxShadow(color: glow.withOpacity(0.5), blurRadius: 24)]
+                  ? [BoxShadow(color: glow.withOpacity(0.9), blurRadius: 40, spreadRadius: 4)]
                   : [],
             ),
             child: ClipRRect(
@@ -153,7 +153,7 @@ class _TvNavItemState extends State<TvNavItem> {
         : (_hasFocus ? Colors.white : Sp.textDim);
     final bg = widget.active
         ? activeColor.withOpacity(0.15)
-        : (_hasFocus ? Colors.white.withOpacity(0.08) : Colors.transparent);
+        : (_hasFocus ? Colors.white.withOpacity(0.20) : Colors.transparent);
 
     return Focus(
       onFocusChange: (f) => setState(() => _hasFocus = f),
@@ -161,7 +161,7 @@ class _TvNavItemState extends State<TvNavItem> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           padding: EdgeInsets.symmetric(
             horizontal: widget.expanded ? 16 : 12,
@@ -251,15 +251,15 @@ class _TvListTileState extends State<TvListTile> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
             color: _hasFocus
-                ? Colors.white.withOpacity(0.12)
+                ? Colors.white.withOpacity(0.25)
                 : (widget.isActive ? Sp.focus.withOpacity(0.12) : Sp.surface),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _hasFocus ? Colors.white : Colors.transparent,
-              width: 2,
+              width: _hasFocus ? 3 : 0,
             ),
             boxShadow: _hasFocus
-                ? [BoxShadow(color: Sp.focus.withOpacity(0.3), blurRadius: 12)]
+                ? [BoxShadow(color: Colors.white.withOpacity(0.4), blurRadius: 16)]
                 : [],
           ),
           child: Row(
@@ -430,17 +430,17 @@ class _TvButtonState extends State<TvButton> {
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           decoration: BoxDecoration(
             color: widget.outlined
-                ? (_hasFocus ? Colors.white.withOpacity(0.1) : Colors.transparent)
+                ? (_hasFocus ? Colors.white.withOpacity(0.2) : Colors.transparent)
                 : (_hasFocus ? Colors.white : primary),
             borderRadius: BorderRadius.circular(50),
             border: Border.all(
               color: widget.outlined
                   ? (_hasFocus ? Colors.white : Colors.white24)
                   : (_hasFocus ? Colors.white : Colors.transparent),
-              width: 2,
+              width: _hasFocus ? 4 : 2,
             ),
             boxShadow: _hasFocus && !widget.outlined
-                ? [BoxShadow(color: primary.withOpacity(0.5), blurRadius: 18)]
+                ? [BoxShadow(color: primary.withOpacity(0.8), blurRadius: 28, spreadRadius: 4)]
                 : [],
           ),
           child: widget.loading

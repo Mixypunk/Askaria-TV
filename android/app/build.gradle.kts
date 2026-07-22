@@ -56,7 +56,7 @@ android {
     buildTypes {
         release {
             // ✅ Signature release (même clé à chaque build → MAJ acceptées)
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled  = false
             isShrinkResources = false
         }

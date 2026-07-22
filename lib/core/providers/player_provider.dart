@@ -152,15 +152,7 @@ class PlayerProvider extends ChangeNotifier {
   void _initPlayer() {
     // Créer le player avec l'EQ dans le pipeline (Android uniquement)
     // L'EQ DOIT être dans le constructeur — impossible à ajouter après
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      _player = AudioPlayer(
-        audioPipeline: AudioPipeline(
-          androidAudioEffects: [EqService.instance.equalizer],
-        ),
-      );
-    } else {
-      _player = AudioPlayer();
-    }
+    _player = AudioPlayer();
     // Charger les réglages EQ — deux déclencheurs pour fiabilité :
     // 1. Dès la première source audio
     _player.playbackEventStream.first.then((_) {

@@ -70,14 +70,14 @@ jobs:
       # → On utilise TOUJOURS la même keystore stockée dans les secrets GitHub.
       - name: Setup release keystore
         run: |
-          echo "${{ secrets.TV_KEYSTORE_BASE64 }}" | base64 --decode > android/app/askaria_tv.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           cat > android/key.properties << EOF
-          storeFile=../app/askaria_tv.jks
-          storePassword=${{ secrets.TV_STORE_PASSWORD }}
-          keyAlias=${{ secrets.TV_KEY_ALIAS }}
-          keyPassword=${{ secrets.TV_KEY_PASSWORD }}
+          storeFile=../app/upload-keystore.jks
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
-          echo "Keystore TV : $(ls -lh android/app/askaria_tv.jks)"
+          echo "Keystore TV : $(ls -lh android/app/upload-keystore.jks)"
 
       # ── Dépendances ───────────────────────────────────────────────────────
       - name: Flutter pub get
