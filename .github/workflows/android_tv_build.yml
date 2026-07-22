@@ -70,7 +70,7 @@ jobs:
       # → On utilise TOUJOURS la même keystore stockée dans les secrets GitHub.
       - name: Setup release keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '\n\r ' | base64 --decode > android/app/upload-keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '\n\r ' | base64 -d -i > android/app/upload-keystore.jks
           cat > android/key.properties << EOF
           storeFile=../app/upload-keystore.jks
           storePassword=${{ secrets.STORE_PASSWORD }}
