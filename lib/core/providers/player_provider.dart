@@ -215,9 +215,9 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   // ── Construction de la playlist ────────────────────────────────────────
-  // Construit un AudioSource pour un titre (sync — utilise getStreamUrl)
-  // Si le fichier est stocké localement (offline), utilise le chemin local
-  AudioSource _buildSource(Song song) {
+  // Construit un AudioSource pour un titre (async — utilise getStreamUrlAsync)
+  // pour s'assurer que le stream token est valide avant de streamer.
+  Future<AudioSource> _buildSource(Song song) async {
     final localPath = song.filepath;
     final isLocal   = localPath != null &&
         (localPath.startsWith('/') || localPath.startsWith('file://')) &&
@@ -229,12 +229,15 @@ class PlayerProvider extends ChangeNotifier {
       uri     = Uri.file(localPath);
       headers = null;
     } else {
-      uri     = Uri.parse(_api.getStreamUrl(song.hash, filepath: song.filepath));
+      // ✅ async : attend et rafraîchit le stream token si nécessaire
+      final url = await _api.getStreamUrlAsync(song.hash, filepath: song.filepath);
+      uri     = Uri.parse(url);
       headers = _api.authHeaders;
     }
 
     return AudioSource.uri(
       uri,
+      headers: headers,
       tag: MediaItem(
         id:     song.hash,
         title:  song.title,
@@ -247,7 +250,7 @@ class PlayerProvider extends ChangeNotifier {
   // Reconstruit toute la ConcatenatingAudioSource depuis _queue
   Future<void> _rebuildPlaylist({int startIndex = 0}) async {
     try {
-      final sources = _queue.map(_buildSource).toList();
+      final sources = await Future.wait(_queue.map(_buildSource));
       _playlist = ConcatenatingAudioSource(useLazyPreparation: false, children: sources);
 
       await _player.setAudioSource(
@@ -301,7 +304,7 @@ class PlayerProvider extends ChangeNotifier {
       } else if (!_queue.contains(song)) {
         _queue.add(song);
         _currentIndex = _queue.length - 1;
-        await _playlist.add(_buildSource(song));
+        await _playlist.add(await _buildSource(song));
         
         // CRITICAL FIX: If the player has no source set yet, seeking won't work.
         if (_player.audioSource == null) {
@@ -418,7 +421,7 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> addToQueue(Song song) async {
     if (!_queue.contains(song)) {
       _queue.add(song);
-      await _playlist.add(_buildSource(song));
+      await _playlist.add(await _buildSource(song));
       if (_player.audioSource == null) {
         await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
       }
@@ -430,7 +433,7 @@ class PlayerProvider extends ChangeNotifier {
     _queue.remove(song);
     final insertAt = (_currentIndex + 1).clamp(0, _queue.length);
     _queue.insert(insertAt, song);
-    await _playlist.insert(insertAt, _buildSource(song));
+    await _playlist.insert(insertAt, await _buildSource(song));
     if (_player.audioSource == null) {
       await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
     }
@@ -662,7 +665,7 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex = savedIndex.clamp(0, restored.length - 1);
 
       // Construire la playlist et charger sans jouer
-      final sources = _queue.map(_buildSource).toList();
+      final sources = await Future.wait(_queue.map(_buildSource));
       await _playlist.addAll(sources);
       await _player.setAudioSource(
         _playlist,
