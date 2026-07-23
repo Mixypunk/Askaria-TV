@@ -215,23 +215,21 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   // ── Construction de la playlist ────────────────────────────────────────
-  // Construit un AudioSource pour un titre (async — attend le stream token)
+  // Construit un AudioSource pour un titre (sync — utilise getStreamUrl)
   // Si le fichier est stocké localement (offline), utilise le chemin local
-  Future<AudioSource> _buildSource(Song song) async {
+  AudioSource _buildSource(Song song) {
     final localPath = song.filepath;
     final isLocal   = localPath != null &&
         (localPath.startsWith('/') || localPath.startsWith('file://')) &&
         !localPath.startsWith('/music');  // /music = NAS, pas local
 
     Uri uri;
-    Map<String, String> headers;
+    Map<String, String>? headers;
     if (isLocal) {
       uri     = Uri.file(localPath);
-      headers = <String, String>{};
+      headers = null;
     } else {
-      // ✅ Attendre le vrai token avant de construire l'URL
-      final streamUrl = await _api.getStreamUrlAsync(song.hash, filepath: song.filepath);
-      uri     = Uri.parse(streamUrl);
+      uri     = Uri.parse(_api.getStreamUrl(song.hash, filepath: song.filepath));
       headers = _api.authHeaders;
     }
 
@@ -243,8 +241,7 @@ class PlayerProvider extends ChangeNotifier {
         title:  song.title,
         artist: song.artist ?? '',
         album:  song.album ?? '',
-        artUri: Uri.parse(
-            '${_api.baseUrl}/img/thumbnail/${song.image ?? song.hash}'),
+        artUri: Uri.parse('${_api.baseUrl}/img/thumbnail/${song.image ?? song.hash}'),
       ),
     );
   }
@@ -252,8 +249,7 @@ class PlayerProvider extends ChangeNotifier {
   // Reconstruit toute la ConcatenatingAudioSource depuis _queue
   Future<void> _rebuildPlaylist({int startIndex = 0}) async {
     try {
-      // ✅ await chaque source car _buildSource est maintenant async
-      final sources = await Future.wait(_queue.map(_buildSource));
+      final sources = _queue.map(_buildSource).toList();
       _playlist = ConcatenatingAudioSource(children: sources);
 
       await _player.setAudioSource(
@@ -307,7 +303,7 @@ class PlayerProvider extends ChangeNotifier {
       } else if (!_queue.contains(song)) {
         _queue.add(song);
         _currentIndex = _queue.length - 1;
-        await _playlist.add(await _buildSource(song));
+        await _playlist.add(_buildSource(song));
         
         // CRITICAL FIX: If the player has no source set yet, seeking won't work.
         if (_player.audioSource == null) {
@@ -424,7 +420,7 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> addToQueue(Song song) async {
     if (!_queue.contains(song)) {
       _queue.add(song);
-      await _playlist.add(await _buildSource(song));
+      await _playlist.add(_buildSource(song));
       if (_player.audioSource == null) {
         await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
       }
@@ -436,7 +432,7 @@ class PlayerProvider extends ChangeNotifier {
     _queue.remove(song);
     final insertAt = (_currentIndex + 1).clamp(0, _queue.length);
     _queue.insert(insertAt, song);
-    await _playlist.insert(insertAt, await _buildSource(song));
+    await _playlist.insert(insertAt, _buildSource(song));
     if (_player.audioSource == null) {
       await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
     }
@@ -668,7 +664,7 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex = savedIndex.clamp(0, restored.length - 1);
 
       // Construire la playlist et charger sans jouer
-      final sources = await Future.wait(_queue.map(_buildSource));
+      final sources = _queue.map(_buildSource).toList();
       await _playlist.addAll(sources);
       await _player.setAudioSource(
         _playlist,
