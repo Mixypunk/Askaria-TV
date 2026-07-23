@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../main.dart';
 import '../core/services/api_service.dart';
 
@@ -566,13 +567,14 @@ class TvArtworkImage extends StatelessWidget {
     }
     return ClipRRect(
       borderRadius: br,
-      child: Image.network(
-        url,
+      child: CachedNetworkImage(
+        imageUrl: url,
         width: size,
         height: size,
         fit: BoxFit.cover,
-        headers: SwingApiService().authHeaders,
-        errorBuilder: (_, __, ___) => Container(
+        httpHeaders: SwingApiService().authHeaders,
+        memCacheWidth: (size * 1.5).toInt(), // Cache optimisation for TV
+        errorWidget: (_, __, ___) => Container(
           width: size, height: size,
           color: Sp.surface,
           child: Icon(fallbackIcon, color: Colors.white24, size: size * 0.4),

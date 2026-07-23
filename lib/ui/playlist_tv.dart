@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/models/playlist.dart';
 import '../core/models/song.dart';
 import '../core/services/api_service.dart';
@@ -68,16 +69,16 @@ class _PlaylistTvScreenState extends State<PlaylistTvScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(24),
-                  child: Image.network(
-                    artwork,
+                  child: CachedNetworkImage(
+                    imageUrl: artwork,
                     width: 300,
                     height: 300,
                     fit: BoxFit.cover,
-                    headers: SwingApiService().authHeaders,
-                    errorBuilder: (_, __, ___) => Container(
-                       width: 300, height: 300,
-                       color: Colors.white12,
-                       child: const Icon(Icons.queue_music_rounded, size: 84, color: Colors.white24),
+                    httpHeaders: SwingApiService().authHeaders,
+                    memCacheWidth: 450,
+                    errorWidget: (_, __, ___) => Container(
+                      width: 300, height: 300, color: Sp.surface,
+                      child: const Icon(Icons.queue_music_rounded, color: Colors.white24, size: 60),
                     ),
                   ),
                 ),

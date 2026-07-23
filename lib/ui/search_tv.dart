@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../core/models/song.dart';
 import '../core/services/api_service.dart';
@@ -283,13 +284,14 @@ class _TvSearchResultTileState extends State<_TvSearchResultTile> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  artwork,
+                child: CachedNetworkImage(
+                  imageUrl: artwork,
                   width: 56, height: 56, fit: BoxFit.cover,
-                  headers: SwingApiService().authHeaders,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 56, height: 56, color: Colors.white12,
-                    child: const Icon(Icons.music_note, color: Colors.white54),
+                  httpHeaders: SwingApiService().authHeaders,
+                  memCacheWidth: 84,
+                  errorWidget: (_, __, ___) => Container(
+                    width: 56, height: 56, color: Sp.surface,
+                    child: const Icon(Icons.album_rounded, color: Colors.white24),
                   ),
                 ),
               ),
@@ -424,12 +426,13 @@ class _DeezerResultTileState extends State<_DeezerResultTile> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  artwork,
+                child: CachedNetworkImage(
+                  imageUrl: artwork,
                   width: 56, height: 56, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 56, height: 56, color: Colors.white12,
-                    child: const Icon(Icons.music_note, color: Colors.white54),
+                  memCacheWidth: 84,
+                  errorWidget: (_, __, ___) => Container(
+                    width: 56, height: 56, color: Sp.surface,
+                    child: const Icon(Icons.person_rounded, color: Colors.white24),
                   ),
                 ),
               ),

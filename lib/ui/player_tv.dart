@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/player_provider.dart';
@@ -59,13 +60,14 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background flouté
+          // Background flouté, optimisé avec petite image mise en cache
           Positioned.fill(
-            child: Image.network(
-              artwork,
+            child: CachedNetworkImage(
+              imageUrl: artwork,
               fit: BoxFit.cover,
-              headers: SwingApiService().authHeaders,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              httpHeaders: SwingApiService().authHeaders,
+              memCacheWidth: 200, // Basse résolution car très flouté
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
             ),
           ),
           Positioned.fill(
@@ -116,7 +118,11 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                                 )
                               ],
                               image: DecorationImage(
-                                image: NetworkImage(artwork, headers: SwingApiService().authHeaders),
+                                image: CachedNetworkImageProvider(
+                                  artwork, 
+                                  headers: SwingApiService().authHeaders,
+                                  maxWidth: 500, // Optimize memory for cover
+                                ),
                                 fit: BoxFit.cover,
                               ),
                             ),
