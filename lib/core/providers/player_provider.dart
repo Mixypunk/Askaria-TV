@@ -22,8 +22,10 @@ class PlayerProvider extends ChangeNotifier {
   final SwingApiService _api = SwingApiService();
   final _random = Random();
 
-  // Liste de sources audio — just_audio 0.10+ utilise setAudioSources()
-  List<AudioSource> _sources = [];
+  // ConcatenatingAudioSource — Android voit une vraie playlist
+  // → affiche les boutons Précédent/Suivant dans la notification
+  ConcatenatingAudioSource _playlist =
+      ConcatenatingAudioSource(children: []);
 
   List<Song> _queue = [];
   int _currentIndex = -1;
@@ -247,35 +249,33 @@ class PlayerProvider extends ChangeNotifier {
     );
   }
 
-  // Reconstruit la liste de sources et recharge le player
+  // Reconstruit toute la ConcatenatingAudioSource depuis _queue
   Future<void> _rebuildPlaylist({int startIndex = 0}) async {
     try {
-      debugPrint('[Player] Rebuilding playlist for ${_queue.length} songs, startIndex=$startIndex');
-      _sources = await Future.wait(_queue.map(_buildSource));
+      // ✅ await chaque source car _buildSource est maintenant async
+      final sources = await Future.wait(_queue.map(_buildSource));
+      _playlist = ConcatenatingAudioSource(children: sources);
 
-      debugPrint('[Player] setAudioSources...');
-      await _player.setAudioSources(
-        _sources,
+      await _player.setAudioSource(
+        _playlist,
         initialIndex: startIndex,
         initialPosition: Duration.zero,
       );
-      debugPrint('[Player] setAudioSources OK');
-    } catch (e, st) {
-      debugPrint('[Player] _rebuildPlaylist error: $e\n$st');
-      _error = e.toString();
-      if (mounted) notifyListeners();
+    } catch (e) {
+      debugPrint('_rebuildPlaylist error: $e');
     }
   }
 
   // Mise à jour asynchrone de l'artUri dans le MediaItem (pour la notification)
-  // Note: avec setAudioSources, on recharge toute la playlist
   Future<void> _updateArtUri(Song song, int index) async {
-    if (index < 0 || index >= _sources.length) return;
+    if (index < 0 || index >= _playlist.length) return;
     try {
-      final artUrl = '${_api.baseUrl}/img/thumbnail/${song.image ?? song.hash}';
+      final artUrl =
+          '${_api.baseUrl}/img/thumbnail/${song.image ?? song.hash}';
       final localUri = await _cacheArtwork(artUrl, song.image ?? song.hash);
-      _sources[index] = AudioSource.uri(
-        Uri.parse(await _api.getStreamUrlAsync(song.hash, filepath: song.filepath)),
+      // Remplacer la source avec l'artUri local
+      final newSource = AudioSource.uri(
+        Uri.parse(_api.getStreamUrl(song.hash, filepath: song.filepath)),
         headers: _api.authHeaders,
         tag: MediaItem(
           id:     song.hash,
@@ -285,6 +285,8 @@ class PlayerProvider extends ChangeNotifier {
           artUri: localUri,
         ),
       );
+      await _playlist.removeRange(index, index + 1);
+      await _playlist.insert(index, newSource);
     } catch (e) {
       debugPrint('_updateArtUri error: $e');
     }
@@ -305,17 +307,27 @@ class PlayerProvider extends ChangeNotifier {
       } else if (!_queue.contains(song)) {
         _queue.add(song);
         _currentIndex = _queue.length - 1;
-        _sources.add(await _buildSource(song));
-        await _player.setAudioSources(_sources, initialIndex: _currentIndex, initialPosition: Duration.zero);
+        await _playlist.add(await _buildSource(song));
+        
+        // CRITICAL FIX: If the player has no source set yet, seeking won't work.
+        if (_player.audioSource == null) {
+          await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
+        } else {
+          await _player.seek(Duration.zero, index: _currentIndex);
+        }
       } else {
         _currentIndex = _queue.indexOf(song);
-        await _player.seek(Duration.zero, index: _currentIndex);
+        if (_player.audioSource == null) {
+          await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
+        } else {
+          await _player.seek(Duration.zero, index: _currentIndex);
+        }
       }
 
       _addToHistory(song);
-      debugPrint('[Player] play() => ${song.title}');
+      debugPrint('[Player] calling _player.play()');
       await _player.play();
-      debugPrint('[Player] play() called OK');
+      debugPrint('[Player] _player.play() executed');
       _fetchLyrics();
       _fetchColors();
       _persistQueue();
@@ -412,8 +424,10 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> addToQueue(Song song) async {
     if (!_queue.contains(song)) {
       _queue.add(song);
-      _sources.add(await _buildSource(song));
-      await _player.setAudioSources(_sources, initialIndex: _currentIndex);
+      await _playlist.add(await _buildSource(song));
+      if (_player.audioSource == null) {
+        await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
+      }
       notifyListeners();
     }
   }
@@ -422,8 +436,10 @@ class PlayerProvider extends ChangeNotifier {
     _queue.remove(song);
     final insertAt = (_currentIndex + 1).clamp(0, _queue.length);
     _queue.insert(insertAt, song);
-    _sources.insert(insertAt, await _buildSource(song));
-    await _player.setAudioSources(_sources, initialIndex: _currentIndex);
+    await _playlist.insert(insertAt, await _buildSource(song));
+    if (_player.audioSource == null) {
+      await _player.setAudioSource(_playlist, initialIndex: _currentIndex);
+    }
     if (insertAt <= _currentIndex) _currentIndex++;
     notifyListeners();
   }
@@ -432,8 +448,7 @@ class PlayerProvider extends ChangeNotifier {
     if (index == _currentIndex) return;
     if (index < _currentIndex) _currentIndex--;
     _queue.removeAt(index);
-    _sources.removeAt(index);
-    _rebuildPlaylist(startIndex: _currentIndex);
+    _playlist.removeRange(index, index + 1);
     notifyListeners();
   }
 
@@ -652,10 +667,11 @@ class PlayerProvider extends ChangeNotifier {
       _queue = restored;
       _currentIndex = savedIndex.clamp(0, restored.length - 1);
 
-      // Construire les sources et charger sans jouer
-      _sources = await Future.wait(_queue.map(_buildSource));
-      await _player.setAudioSources(
-        _sources,
+      // Construire la playlist et charger sans jouer
+      final sources = await Future.wait(_queue.map(_buildSource));
+      await _playlist.addAll(sources);
+      await _player.setAudioSource(
+        _playlist,
         initialIndex:    _currentIndex,
         initialPosition: Duration(seconds: savedPos),
       );
