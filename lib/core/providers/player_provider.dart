@@ -400,19 +400,19 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   // ── Queue management ───────────────────────────────────────────────────
-  void addToQueue(Song song) {
+  Future<void> addToQueue(Song song) async {
     if (!_queue.contains(song)) {
       _queue.add(song);
-      _playlist.add(_buildSource(song));
+      await _playlist.add(await _buildSource(song));
       notifyListeners();
     }
   }
 
-  void addNextInQueue(Song song) {
+  Future<void> addNextInQueue(Song song) async {
     _queue.remove(song);
     final insertAt = (_currentIndex + 1).clamp(0, _queue.length);
     _queue.insert(insertAt, song);
-    _playlist.insert(insertAt, _buildSource(song));
+    await _playlist.insert(insertAt, await _buildSource(song));
     if (insertAt <= _currentIndex) _currentIndex++;
     notifyListeners();
   }
@@ -641,7 +641,7 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex = savedIndex.clamp(0, restored.length - 1);
 
       // Construire la playlist et charger sans jouer
-      final sources = _queue.map(_buildSource).toList();
+      final sources = await Future.wait(_queue.map(_buildSource));
       await _playlist.addAll(sources);
       await _player.setAudioSource(
         _playlist,
