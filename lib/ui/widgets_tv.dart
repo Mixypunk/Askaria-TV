@@ -707,6 +707,8 @@ class _TvHorizontalListState extends State<TvHorizontalList> {
               SizedBox(width: widget.itemSpacing),
           itemBuilder: (ctx, i) {
             return Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
               onFocusChange: (hasFocus) {
                 if (hasFocus) {
                   // Auto-scroll vers l'item focalisé si le controller est prêt
