@@ -43,10 +43,10 @@ Future<void> main() async {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.mixypunk.askaria_tv.channel.audio',
       androidNotificationChannelName: 'Askaria TV — Lecture',
-      androidNotificationIcon: 'mipmap/ic_launcher',
-      androidShowNotificationBadge: true,
       androidNotificationOngoing: false,
-      preloadArtwork: false,
+      androidStopForegroundOnPause: true,
+      notificationColor: const Color(0xFF1C1C24),
+      androidNotificationIcon: 'mipmap/ic_launcher',
     );
   } catch (e) {
     debugPrint('JustAudioBackground init error: $e');
