@@ -181,8 +181,10 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                             SizedBox(height: vPad),
                             
                             // Contrôles
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _PlayerControlButton(
                                   icon: player.isFavourite(song.hash) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -248,6 +250,7 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
                                   size: 36,
                                 ),
                               ],
+                            ),
                             ),
                           ],
                         ),
@@ -366,20 +369,10 @@ class _TvLyricsPageState extends State<_TvLyricsPage> {
     if (key == null) return;
     final ctx = key.currentContext;
     if (ctx == null) return;
-    final box = ctx.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
 
-    final itemOffset = box.localToGlobal(Offset.zero).dy;
-    final itemHeight = box.size.height;
-    
-    final scrollBox = _scroll.position.context.notificationContext?.findRenderObject() as RenderBox?;
-    final viewHeight = scrollBox?.size.height ?? MediaQuery.of(ctx).size.height;
-    final currentScroll = _scroll.offset;
-
-    final target = currentScroll + itemOffset - (viewHeight / 2) + (itemHeight / 2);
-
-    _scroll.animateTo(
-      target.clamp(0.0, _scroll.position.maxScrollExtent),
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
     );
