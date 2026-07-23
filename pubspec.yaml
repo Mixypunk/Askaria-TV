@@ -40,7 +40,7 @@ dependencies:
   shared_preferences: ^2.5.3
   just_audio: ^0.9.36
   just_audio_background: ^0.0.1-beta.11
-  audio_session: ^0.2.3
+  audio_session: ^0.1.16
   cached_network_image: ^3.4.1
   path_provider: ^2.1.5
   flutter_secure_storage: ^10.0.0
