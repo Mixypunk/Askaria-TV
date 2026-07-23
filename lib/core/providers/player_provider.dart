@@ -25,7 +25,7 @@ class PlayerProvider extends ChangeNotifier {
   // ConcatenatingAudioSource — Android voit une vraie playlist
   // → affiche les boutons Précédent/Suivant dans la notification
   ConcatenatingAudioSource _playlist =
-      ConcatenatingAudioSource(children: []);
+      ConcatenatingAudioSource(useLazyPreparation: false, children: []);
 
   List<Song> _queue = [];
   int _currentIndex = -1;
@@ -235,13 +235,11 @@ class PlayerProvider extends ChangeNotifier {
 
     return AudioSource.uri(
       uri,
-      headers: headers,
       tag: MediaItem(
         id:     song.hash,
         title:  song.title,
         artist: song.artist ?? '',
         album:  song.album ?? '',
-        artUri: Uri.parse('${_api.baseUrl}/img/thumbnail/${song.image ?? song.hash}'),
       ),
     );
   }
@@ -250,7 +248,7 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> _rebuildPlaylist({int startIndex = 0}) async {
     try {
       final sources = _queue.map(_buildSource).toList();
-      _playlist = ConcatenatingAudioSource(children: sources);
+      _playlist = ConcatenatingAudioSource(useLazyPreparation: false, children: sources);
 
       await _player.setAudioSource(
         _playlist,
