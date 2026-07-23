@@ -78,155 +78,164 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
           
           // Contenu principal
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 48),
-              child: Row(
-                children: [
-                  // Pochette à gauche
-                  Hero(
-                    tag: 'album_art_${song.hash}', // Tag possible si on vient de la vue Album
-                    child: Container(
-                      width: 360,
-                      height: 360,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(128),
-                            blurRadius: 32,
-                            offset: const Offset(0, 16),
-                          )
-                        ],
-                        image: DecorationImage(
-                          image: NetworkImage(artwork, headers: SwingApiService().authHeaders),
-                          fit: BoxFit.cover,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Pochette responsive : max 340px, min 160px selon hauteur dispo
+                final artSize = (constraints.maxHeight * 0.55).clamp(160.0, 340.0);
+                final hPad    = constraints.maxWidth  > 1200 ? 64.0 : 32.0;
+                final vPad    = constraints.maxHeight > 700  ? 32.0 : 16.0;
+
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+                  child: Row(
+                    children: [
+                      // Pochette à gauche
+                      Hero(
+                        tag: 'album_art_${song.hash}',
+                        child: Container(
+                          width: artSize,
+                          height: artSize,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(128),
+                                blurRadius: 32,
+                                offset: const Offset(0, 16),
+                              )
+                            ],
+                            image: DecorationImage(
+                              image: NetworkImage(artwork, headers: SwingApiService().authHeaders),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 64),
-                  
-                  // Informations et Contrôles à droite
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          song.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          song.artist,
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(200),
-                            fontSize: 24,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 48),
-                        
-                        // Ligne de progression
-                        Row(
-                          children: [
-                            Text(
-                              _formatDuration(player.position),
-                              style: const TextStyle(color: Sp.textDim, fontSize: 16),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: WaveformSeekbar(
-                                peaks: _waveform,
-                                progress: player.progress,
-                                accentColor: primaryColor,
-                                onSeekDelta: (delta) {
-                                  final newSeconds = player.position.inSeconds + delta;
-                                  player.seek(Duration(seconds: newSeconds.clamp(0, player.duration.inSeconds)));
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              _formatDuration(player.duration),
-                              style: const TextStyle(color: Sp.textDim, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 48),
-                        
-                        // Contrôles
-                        Row(
+                      SizedBox(width: hPad),
+                      
+                      // Informations et Contrôles à droite
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _PlayerControlButton(
-                              icon: player.isFavourite(song.hash) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              activeColor: player.isFavourite(song.hash) ? Colors.red : Sp.textDim,
-                              onTap: () => player.toggleFavourite(song.hash),
-                              size: 42,
+                            Text(
+                              song.title,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: constraints.maxHeight > 700 ? 38 : 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: Icons.shuffle_rounded,
-                              activeColor: player.shuffle ? primaryColor : Sp.textDim,
-                              onTap: player.toggleShuffle,
-                              size: 42,
+                            SizedBox(height: vPad * 0.25),
+                            Text(
+                              song.artist,
+                              style: TextStyle(
+                                color: Colors.white.withAlpha(200),
+                                fontSize: constraints.maxHeight > 700 ? 22 : 18,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: Icons.skip_previous_rounded,
-                              onTap: player.previous,
-                              size: 56,
+                            SizedBox(height: vPad),
+                            
+                            // Ligne de progression
+                            Row(
+                              children: [
+                                Text(
+                                  _formatDuration(player.position),
+                                  style: const TextStyle(color: Sp.textDim, fontSize: 16),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: WaveformSeekbar(
+                                    peaks: _waveform,
+                                    progress: player.progress,
+                                    accentColor: primaryColor,
+                                    onSeekDelta: (delta) {
+                                      final newSeconds = player.position.inSeconds + delta;
+                                      player.seek(Duration(seconds: newSeconds.clamp(0, player.duration.inSeconds)));
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Text(
+                                  _formatDuration(player.duration),
+                                  style: const TextStyle(color: Sp.textDim, fontSize: 16),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: player.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
-                              onTap: player.playPause,
-                              size: 84,
-                              autoFocus: true, // Auto focus sur Play
-                            ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: Icons.skip_next_rounded,
-                              onTap: player.next,
-                              size: 56,
-                            ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: player.repeatMode == RepeatMode.one 
-                                    ? Icons.repeat_one_rounded 
-                                    : Icons.repeat_rounded,
-                              activeColor: player.repeatMode != RepeatMode.off ? primaryColor : Sp.textDim,
-                              onTap: player.toggleRepeat,
-                              size: 42,
-                            ),
-                            const SizedBox(width: 32),
-                            _PlayerControlButton(
-                              icon: Icons.radio_rounded,
-                              activeColor: Sp.textDim,
-                              onTap: () async {
-                                final tracks = await SwingApiService().getRadio(song.hash);
-                                if (tracks.isNotEmpty && mounted) {
-                                  if (!context.mounted) return;
-                                  context.read<PlayerProvider>().playSong(tracks.first, queue: tracks, index: 0);
-                                }
-                              },
-                              size: 42,
+                            SizedBox(height: vPad),
+                            
+                            // Contrôles
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _PlayerControlButton(
+                                  icon: player.isFavourite(song.hash) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  activeColor: player.isFavourite(song.hash) ? Colors.red : Sp.textDim,
+                                  onTap: () => player.toggleFavourite(song.hash),
+                                  size: 36,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: Icons.shuffle_rounded,
+                                  activeColor: player.shuffle ? primaryColor : Sp.textDim,
+                                  onTap: player.toggleShuffle,
+                                  size: 36,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: Icons.skip_previous_rounded,
+                                  onTap: player.previous,
+                                  size: 48,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: player.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
+                                  onTap: player.playPause,
+                                  size: 72,
+                                  autoFocus: true,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: Icons.skip_next_rounded,
+                                  onTap: player.next,
+                                  size: 48,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: player.repeatMode == RepeatMode.one 
+                                        ? Icons.repeat_one_rounded 
+                                        : Icons.repeat_rounded,
+                                  activeColor: player.repeatMode != RepeatMode.off ? primaryColor : Sp.textDim,
+                                  onTap: player.toggleRepeat,
+                                  size: 36,
+                                ),
+                                const SizedBox(width: 24),
+                                _PlayerControlButton(
+                                  icon: Icons.radio_rounded,
+                                  activeColor: Sp.textDim,
+                                  onTap: () async {
+                                    final tracks = await SwingApiService().getRadio(song.hash);
+                                    if (tracks.isNotEmpty && mounted) {
+                                      if (!context.mounted) return;
+                                      context.read<PlayerProvider>().playSong(tracks.first, queue: tracks, index: 0);
+                                    }
+                                  },
+                                  size: 36,
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  )
-                ],
-              ),
+                      )
+                    ],
+                  ),
+                );
+              },
             ),
           ),
           
@@ -237,7 +246,7 @@ class _PlayerTvScreenState extends State<PlayerTvScreen> {
             child: _PlayerControlButton(
               icon: Icons.close_rounded,
               onTap: () => Navigator.of(context).pop(),
-              size: 42,
+              size: 36,
             ),
           ),
         ],

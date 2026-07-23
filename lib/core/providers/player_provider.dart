@@ -215,19 +215,25 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   // ── Construction de la playlist ────────────────────────────────────────
-  // Construit un AudioSource pour un titre (sync — utilise getStreamUrl)
+  // Construit un AudioSource pour un titre (async — attend le stream token)
   // Si le fichier est stocké localement (offline), utilise le chemin local
-  AudioSource _buildSource(Song song) {
+  Future<AudioSource> _buildSource(Song song) async {
     final localPath = song.filepath;
     final isLocal   = localPath != null &&
         (localPath.startsWith('/') || localPath.startsWith('file://')) &&
         !localPath.startsWith('/music');  // /music = NAS, pas local
 
-    final uri = isLocal
-        ? Uri.file(localPath)
-        : Uri.parse(_api.getStreamUrl(song.hash, filepath: song.filepath));
-
-    final headers = isLocal ? <String, String>{} : _api.authHeaders;
+    Uri uri;
+    Map<String, String> headers;
+    if (isLocal) {
+      uri     = Uri.file(localPath);
+      headers = <String, String>{};
+    } else {
+      // ✅ Attendre le vrai token avant de construire l'URL
+      final streamUrl = await _api.getStreamUrlAsync(song.hash, filepath: song.filepath);
+      uri     = Uri.parse(streamUrl);
+      headers = _api.authHeaders;
+    }
 
     return AudioSource.uri(
       uri,
@@ -246,7 +252,8 @@ class PlayerProvider extends ChangeNotifier {
   // Reconstruit toute la ConcatenatingAudioSource depuis _queue
   Future<void> _rebuildPlaylist({int startIndex = 0}) async {
     try {
-      final sources = _queue.map(_buildSource).toList();
+      // ✅ await chaque source car _buildSource est maintenant async
+      final sources = await Future.wait(_queue.map(_buildSource));
       _playlist = ConcatenatingAudioSource(children: sources);
 
       await _player.setAudioSource(
@@ -297,7 +304,7 @@ class PlayerProvider extends ChangeNotifier {
     } else if (!_queue.contains(song)) {
       _queue.add(song);
       _currentIndex = _queue.length - 1;
-      await _playlist.add(_buildSource(song));
+      await _playlist.add(await _buildSource(song));
       await _player.seek(Duration.zero, index: _currentIndex);
     } else {
       _currentIndex = _queue.indexOf(song);

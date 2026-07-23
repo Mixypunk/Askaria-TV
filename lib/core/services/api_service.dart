@@ -658,6 +658,22 @@ class SwingApiService {
     return '$_baseUrl/file/$trackHash/legacy?bitrate=$bitrate&token=$token';
   }
 
+  /// Version async : attend le stream token avant de construire l'URL.
+  /// C'est la méthode à utiliser pour lancer la lecture audio (just_audio).
+  Future<String> getStreamUrlAsync(String trackHash,
+      {String? filepath, String quality = 'high'}) async {
+    final bitrate = quality == 'low' ? '96'
+                  : quality == 'medium' ? '192'
+                  : '0';
+    // ✅ Attend le vrai stream token (rafraîchi si expiré)
+    final token = await _getStreamToken();
+    if (filepath != null && filepath.isNotEmpty) {
+      final encoded = Uri.encodeComponent(filepath);
+      return '$_baseUrl/file/$trackHash/legacy?filepath=$encoded&bitrate=$bitrate&token=$token';
+    }
+    return '$_baseUrl/file/$trackHash/legacy?bitrate=$bitrate&token=$token';
+  }
+
   // Format officiel: {baseUrl}img/thumbnail/{track.image}
   String getArtworkUrl(String imageHash, {String type = 'track'}) {
     return '$_baseUrl/img/thumbnail/$imageHash';
