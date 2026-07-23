@@ -6,7 +6,7 @@
     - Pas d'exceptions cleartext → forçage SSL/TLS
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <!-- Autorités de certification système (inclut Let's Encrypt/ISRG) -->
             <certificates src="system"/>
