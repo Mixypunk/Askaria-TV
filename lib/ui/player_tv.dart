@@ -378,7 +378,7 @@ class _TvLyricsPageState extends State<_TvLyricsPage> {
     );
   }
 
-  void _sync() {
+  void _sync({bool forceCenter = false}) {
     if (!mounted) return;
     final lines = widget.player.syncedLines;
     if (lines == null || lines.isEmpty) return;
@@ -387,8 +387,8 @@ class _TvLyricsPageState extends State<_TvLyricsPage> {
     for (int i = 0; i < lines.length; i++) {
       if (lines[i]['time'] <= pos) idx = i;
     }
-    if (idx != _line) {
-      setState(() => _line = idx);
+    if (idx != _line || forceCenter) {
+      if (idx != _line) setState(() => _line = idx);
       WidgetsBinding.instance.addPostFrameCallback((_) => _centerLine(idx));
     }
   }
@@ -399,6 +399,9 @@ class _TvLyricsPageState extends State<_TvLyricsPage> {
   void initState() {
     super.initState();
     widget.player.addListener(_onPlayerUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sync(forceCenter: true);
+    });
   }
 
   @override
