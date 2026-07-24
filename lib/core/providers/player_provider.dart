@@ -14,6 +14,7 @@ import '../services/color_service.dart';
 import '../services/widget_service.dart';
 import '../services/network_quality_service.dart';
 import '../services/eq_service.dart';
+import '../services/connect_receiver_service.dart';
 
 enum RepeatMode { off, all, one }
 
@@ -147,6 +148,7 @@ class PlayerProvider extends ChangeNotifier {
     _loadFavourites();
     _loadCrossfade();
     _restoreQueue();
+    ConnectReceiverService.instance.init(this);
   }
 
   void _initPlayer() {
@@ -177,6 +179,7 @@ class PlayerProvider extends ChangeNotifier {
         _fetchColors();
         _updateWidget();
         _persistQueue();
+        ConnectReceiverService.instance.broadcastState();
         notifyListeners();
       }
     });
@@ -193,6 +196,7 @@ class PlayerProvider extends ChangeNotifier {
         }
       }
       _updateWidget();
+      ConnectReceiverService.instance.broadcastState();
       if (mounted) notifyListeners();
     });
 
@@ -206,6 +210,7 @@ class PlayerProvider extends ChangeNotifier {
           _isPlaying) {
         _startCrossfade();
       }
+      ConnectReceiverService.instance.broadcastState();
       if (mounted) notifyListeners();
     });
 
